@@ -1,24 +1,16 @@
 #include <amxmodx>
 #include <reapi>                         
 
-#define is_valid_player(%1)      (1 <= (%1) <= g_iMaxPlayers)
-
-new g_iMaxPlayers;
-new bool:g_bMapHasBombZone;
-
 public plugin_init()
 {
-    register_plugin("Give Equipment", "1.1", "d3m37r4");
+    register_plugin("Give Equipment", "1.2", "d3m37r4");
 
     RegisterHookChain(RG_CBasePlayer_Spawn, "CBasePlayer_Spawn", true); 
-
-    g_bMapHasBombZone = get_member_game(m_bMapHasBombZone);
-    g_iMaxPlayers = get_maxplayers();
 }
 
 public CBasePlayer_Spawn(iIndex) 
 {
-	if(!is_valid_player(iIndex))
+	if(!is_user_alive(iIndex))
 		return HC_CONTINUE;
 
 	new ArmorType:iArmorType;
@@ -30,12 +22,8 @@ public CBasePlayer_Spawn(iIndex)
 
 	new bool:bUserHasDefuser = get_member(iIndex, m_bHasDefuser);
 
-	if(g_bMapHasBombZone)
-	{
-		if(iTeam == TEAM_CT && !bUserHasDefuser) 
-			rg_give_defusekit (iIndex, true);                                
-	}
+	if(iTeam == TEAM_CT && !bUserHasDefuser) 
+		rg_give_defusekit(iIndex, true);                                
 
 	return HC_CONTINUE;
 }
-
