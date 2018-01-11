@@ -6,16 +6,16 @@ ul{margin:0px 5px 5px 10px;padding-left:15px}
 ol{margin:0px 5px 5px 10px;padding-left:15px}
 
 /* Стиль текста */
-.red {color:#CC0000}
-.red_big {color:#CC0000;font-size:13px;font-weight:bold}
+.red{color:#CC0000}
+.red_big{color:#CC0000;font-size:13px;font-weight:bold}
 .green{color:#00BB33}
 .green_big{color:#00BB33;font-size:13px;font-weight:bold}
 .orange{color:#FF9933}
 .orange_big{color:#FF9933;font-size:13px;font-weight:bold}
-.blue {color:#0066FF}
+.blue{color:#0066FF}
 .blue_big {color:#0066FF;font-size:13px;font-weight:bold}
-.grey {color:#404040}
-.grey_big {padding:5px;color:#fbb200;font-size:13px;font-weight:bold}
+.grey{color:#404040}
+.grey_big{padding:5px;color:#fbb200;font-size:13px;font-weight:bold}
 
 /* Стиль примечания */
 .tip_grey{background:#DDDDDD;border:1px solid #404040;color:#404040;padding:5px;margin:5px;margin-bottom:5px}
