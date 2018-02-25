@@ -1,173 +1,190 @@
 #include <amxmodx>
 #include <reapi>
 #include <nvault_array>
+       
+new const PLUGIN_NAME[]    = "Vip System";
+new const PLUGIN_VERSION[] = "3.2.2";
+new const PLUGIN_AUTHOR[]  = "d3m37r4";
 
-#if AMXX_VERSION_NUM < 183           
-    #include <colorchat>
-    #define client_disconnected         client_disconnect   
-#endif                                                      
-
-#define VIP_ACCESS                      ADMIN_LEVEL_H           // Флаг доступа к vip-системе                 
-#define VIP_ROUND                       3                       // C какого раунда доступно vip-меню                 
 #define ADMIN_LOADER                                            // Совместимость с Admin Loader от neygomon
-//#define GIVE_DEFUSEKIT_AND_ARMOR                              // Выдавать бронежилет и DefuseKit (если игрок КТ) каждый раунд  
-#define GIVE_GRENADES                                           // Выдавать гранаты каждый раунд 
-#define VAULT_EXPIRE_DAYS                60                     // Через сколько дней удалить настройку (если игрок не заходил)
+//#define GIVE_DEFUSEKIT_AND_ARMOR                              // Выдавать бронежилет и DefuseKit (если игрок КТ) в начале раунда
+#define GIVE_GRENADES                                           // Выдавать гранаты в начале раунда
+#define RESTRICT_AWP_ON_2x2_MAPS                                // Запрещать покупку awp на картах 2x2
+
+const VIP_ACCESS        = ADMIN_LEVEL_H;        // Флаг доступа к vip-системе
+const VIP_ROUND         = 3;                    // C какого раунда доступна покупка основного оружия через vip-меню 
+const SPAWN_EQUIP_ROUND = 2;                    // С какого раунда выдавать аммуницию при спавне игрока
+const PERCENT_DISCOUNT  = 40;                   // Скидка (указывается в процентах, выходное значение будет округлено до ближайшего десятка), на сколько дешевле будет стоить основное оружие в vip-меню
+const VAULT_EXPIRE_DAYS = 180;                  // Сколько дней настройки игрока хранятся на сервере (отсчет идет с последнего посещения)
+#if defined GIVE_DEFUSEKIT_AND_ARMOR 
+    const ARMOR_VALUE   = 100;                  // Кол-во брони, выдаваемое игроку
+#endif
+
+enum _:PISTOL_INFO {WeaponIdType:PISTOL_ID, PISTOL_AMMO};
+enum _:WEAPON_INFO {WeaponIdType:W_ID, W_AMMO, W_COST};
+enum _:PLAYER_DATA {AuthId[32], Damager, Pistol, Automenu};
+enum _:STATE_TYPE {STATE_DISABLED, STATE_ENABLED};
+enum {PISTOL_DGL, PISTOL_USP, PISTOL_G18, PISTOL_OFF};
+
+const MAX_PISTOLS = 3;
+const MAX_ITEMS   = 5;
+                                          
+new const g_PistolName[MAX_PISTOLS + 1][] = {"\rDEAGLE", "\rUSP", "\rGLOCK", "\dOFF"}; 
+new const g_WeaponName[MAX_ITEMS + 1][]   = {"AK47", "M4A1", "FAMAS", "GALIL", "SCOUT", "AWP"};
+
+new const g_PistolClassNames[MAX_PISTOLS][] = {"weapon_deagle", "weapon_usp", "weapon_glock18"};
+new const g_ItemClassNames[MAX_ITEMS + 1][] = {"weapon_ak47", "weapon_m4a1", "weapon_famas", "weapon_galil", "weapon_scout", "weapon_awp"};
+
+new const g_VaultFile[]          = "vip_system_data";
+new const g_MapPrefix[][]       = {"awp_", "aim_", "35hp", "fy_", "$"};
+new const g_State[STATE_TYPE][] = {"\dOFF", "\rON"};
+
+new const KEYS_MENU = MENU_KEY_1|MENU_KEY_2|MENU_KEY_3|MENU_KEY_4|MENU_KEY_5|MENU_KEY_6|MENU_KEY_7|MENU_KEY_8|MENU_KEY_9|MENU_KEY_0;
+
+new g_Items[MAX_ITEMS + 1][WEAPON_INFO], g_Pistols[MAX_PISTOLS][PISTOL_INFO];
+
+new g_hVault = INVALID_HANDLE;
+new g_aPlayerData[MAX_CLIENTS + 1][PLAYER_DATA];
+
+new g_iCvarBuyTime, Float:g_flBuyTime;
+new g_iMaxPlayers, g_iMenuId, g_iRoundCount, g_iSyncMsgDamage;
+
+new HookChain:g_hookOnSpawnEquip;
+new bool:g_bMapsBlock, g_MapName[32];
+
+#define is_valid_player(%1)     (1 <= (%1) <= g_iMaxPlayers)
+#define is_user_vip(%1)         (get_user_flags(%1) & VIP_ACCESS)
 
 #if defined ADMIN_LOADER 
     native admin_expired(index);
-#endif               
-       
-enum player_s { AuthId[32], Damager, Pistol, Automenu };
-enum { STATE_DISABLED, STATE_ENABLED };
-enum { PISTOL_DGL, PISTOL_USP, PISTOL_G18 };
-
-new g_aPlayerData[MAX_CLIENTS + 1][player_s];
-new g_hVault = INVALID_HANDLE;
-new const VAULT_FILE[] = "vipmenu_data";
-                                          
-new bool:g_bUseWeapon[MAX_CLIENTS + 1];
-
-new g_iCvarBuyTime, Float: g_flBuyTime;
-new g_bRoundCount; 
-
-new g_bMapName[32], bool:g_bMapsBlock;
-new const g_iMapPrefix[][] = { "awp_", "aim_", "35hp", "fy_", "$" };
-
-new g_bMenuId;
-new const KEYS_MENU = MENU_KEY_1|MENU_KEY_2|MENU_KEY_3|MENU_KEY_4|MENU_KEY_5|MENU_KEY_6|MENU_KEY_7|MENU_KEY_8|MENU_KEY_0;
-
-new g_bMaxPlayers, g_bSyncMsgDamage;
-
-#define is_valid_player(%1)      (1 <= (%1) <= g_bMaxPlayers)
-#define is_user_vip(%1)          (get_user_flags(%1) & VIP_ACCESS)
-
-public plugin_end() 
-{
-    if(g_hVault != INVALID_HANDLE)
-        nvault_close(g_hVault);
-}
+#endif
 
 public plugin_cfg()
 {
-    if((g_hVault = nvault_open(VAULT_FILE)) == INVALID_HANDLE)
+    if((g_hVault = nvault_open(g_VaultFile)) == INVALID_HANDLE)
     {
-        set_fail_state("[VIP SYSTEM] ERROR: Opening nVault failed!");
+        set_fail_state("[%s] Opening nVault failed!", PLUGIN_NAME);
     } else {
         nvault_prune(g_hVault, 0, get_systime() - (86400 * VAULT_EXPIRE_DAYS));
     }
+
+    for(new i; i < sizeof g_PistolClassNames; i++)
+    {
+        g_Pistols[i][PISTOL_ID]   = rg_get_weapon_info(g_PistolClassNames[i], WI_ID);
+        g_Pistols[i][PISTOL_AMMO] = rg_get_weapon_info(g_Pistols[i][PISTOL_ID], WI_MAX_ROUNDS);
+    }
+
+    for(new i; i < sizeof g_ItemClassNames; i++)
+    {
+        g_Items[i][W_ID]   = rg_get_weapon_info(g_ItemClassNames[i], WI_ID);
+        g_Items[i][W_AMMO] = rg_get_weapon_info(g_Items[i][W_ID], WI_MAX_ROUNDS);
+        g_Items[i][W_COST] = ((floatround(float(rg_get_weapon_info(g_Items[i][W_ID], WI_COST)) * (1.0 - float(PERCENT_DISCOUNT) / 100.0)) + 5) / 10) * 10;
+    }
+
+    get_mapname(g_MapName, charsmax(g_MapName)); 
+
+    for(new i; i < sizeof g_MapPrefix; i++)
+    {             
+        if(containi(g_MapName, g_MapPrefix[i]) != -1)
+        {   
+            g_bMapsBlock = true;
+            break;
+        }
+    } 
 }
 
 public plugin_init()
 {   
-    register_plugin("Vip System", "2.7.5", "d3m37r4");
+    register_plugin(PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR);
                                 
     register_clcmd("say /vipmenu", "Cmd_Menu");
     register_clcmd("say_team /vipmenu", "Cmd_Menu");
     register_clcmd("vipmenu", "Cmd_Menu");
     
-    g_bMenuId = register_menuid("Menu");
-    register_menucmd(g_bMenuId, KEYS_MENU, "Menu_Handler");
+    g_iMenuId = register_menuid("Menu");
+    register_menucmd(g_iMenuId, KEYS_MENU, "Menu_Handler");
     
     register_event("StatusIcon", "Event_HideStatusIcon", "b", "1=0", "2=buyzone");
 
     RegisterHookChain(RG_CSGameRules_RestartRound, "CSGameRules_RestartRound_Pre", false);
     RegisterHookChain(RG_CBasePlayer_TakeDamage, "CBasePlayer_TakeDamage", true); 
-
-    if(!g_bMapsBlock) RegisterHookChain(RG_CBasePlayer_Spawn, "CBasePlayer_Spawn", true); 
+    DisableHookChain((g_hookOnSpawnEquip = RegisterHookChain(RG_CBasePlayer_OnSpawnEquip, "CBasePlayer_OnSpawnEquip", true))); 
     
     g_iCvarBuyTime   = get_cvar_pointer("mp_buytime");
     g_flBuyTime      = get_pcvar_float(g_iCvarBuyTime);
-    g_bSyncMsgDamage = CreateHudSyncObj();
-    g_bMaxPlayers    = get_maxplayers();
-    
-    get_mapname(g_bMapName, charsmax(g_bMapName));    
-    for(new i; i < sizeof g_iMapPrefix; i ++)
-    {             
-        if(containi(g_bMapName, g_iMapPrefix[i]) != -1)
-        {   
-            g_bMapsBlock = true;
-            break;
-        }
-    }     
+
+    g_iSyncMsgDamage = CreateHudSyncObj();
+    g_iMaxPlayers    = get_maxplayers();    
 } 
 
-public client_disconnected(pClient)
-    SaveUserInfo(pClient);                                       
+public client_disconnected(iIndex)
+    save_user_settings(iIndex);                                       
 
-public client_putinserver(pClient)
+public client_putinserver(iIndex)
 {
-    g_aPlayerData[pClient][AuthId][0] = 0;
+    g_aPlayerData[iIndex][AuthId][0] = 0;
 
-    if(!is_user_vip(pClient))
+    if(!is_user_vip(iIndex))
         return;
     
-    get_user_authid(pClient, g_aPlayerData[pClient][AuthId], charsmax(g_aPlayerData[][AuthId]));
+    get_user_authid(iIndex, g_aPlayerData[iIndex][AuthId], charsmax(g_aPlayerData[][AuthId]));
 
-    if(nvault_get_array(g_hVault, g_aPlayerData[pClient][AuthId], g_aPlayerData[pClient], player_s) <= 0)
+    if(nvault_get_array(g_hVault, g_aPlayerData[iIndex][AuthId], g_aPlayerData[iIndex], PLAYER_DATA) <= 0)
     {
-        g_aPlayerData[pClient][Damager] = STATE_DISABLED
-        g_aPlayerData[pClient][Pistol] = PISTOL_DGL;
-        g_aPlayerData[pClient][Automenu] = STATE_DISABLED;
+        g_aPlayerData[iIndex][Damager] = STATE_DISABLED
+        g_aPlayerData[iIndex][Pistol] = PISTOL_DGL;
+        g_aPlayerData[iIndex][Automenu] = STATE_DISABLED;
     }
 }
             
 public CSGameRules_RestartRound_Pre()
 {
-    arrayset(g_bUseWeapon, false, sizeof(g_bUseWeapon));
-
     if(get_member_game(m_bCompleteReset))
-        g_bRoundCount = 0;
-
-    g_bRoundCount++;                                                                          
-} 
-
-public CBasePlayer_Spawn(const pPlayer)
-{ 
-    if(is_bonus_spawn(pPlayer))
     {
-        switch(g_aPlayerData[pPlayer][Pistol])
-        {
-            case PISTOL_DGL: 
-            {
-                rg_give_item(pPlayer, "weapon_deagle", GT_REPLACE);
-                rg_set_user_bpammo(pPlayer, WEAPON_DEAGLE, 35);
-            }
-            case PISTOL_USP:
-            {
-                rg_give_item(pPlayer, "weapon_usp", GT_REPLACE);
-                rg_set_user_bpammo(pPlayer, WEAPON_USP, 100);
-            }
-            case PISTOL_G18: 
-            {
-                rg_give_item(pPlayer, "weapon_glock18", GT_REPLACE);
-                rg_set_user_bpammo(pPlayer, WEAPON_GLOCK18, 120);
-            }
-        }
-#if defined GIVE_GRENADES    
-        rg_give_item(pPlayer, "weapon_hegrenade", GT_APPEND);
-        rg_give_item(pPlayer, "weapon_flashbang", GT_APPEND);  
-        rg_set_user_bpammo(pPlayer, WEAPON_FLASHBANG, 2);
-        rg_give_item(pPlayer, "weapon_smokegrenade", GT_APPEND);
-#endif    
-#if defined GIVE_DEFUSEKIT_AND_ARMOR    
-        rg_set_user_armor(pPlayer, 100, ARMOR_VESTHELM);
-
-        new bool:bUserHasDefuser = get_member(pPlayer, m_bHasDefuser);
-        new TeamName:iTeam = get_member(pPlayer, m_iTeam); 
-
-        if(iTeam == TEAM_CT && !bUserHasDefuser)
-            rg_give_defusekit (pPlayer, true);        
-#endif
-        if(g_aPlayerData[pPlayer][Automenu] == STATE_ENABLED)
-        {
-            if(VIP_ROUND <= g_bRoundCount && !get_member(pPlayer, m_bHasPrimary))
-                Show_Menu(pPlayer, false);
-        }              
+        g_iRoundCount = 0;
+        DisableHookChain(g_hookOnSpawnEquip);
     }
+
+    if(++g_iRoundCount >= SPAWN_EQUIP_ROUND && !g_bMapsBlock)
+        EnableHookChain(g_hookOnSpawnEquip);
+}
+
+public CBasePlayer_OnSpawnEquip(const iIndex)
+{ 
+    if(!is_user_vip(iIndex))
+        return HC_CONTINUE;
+
+    new iPistolID = g_aPlayerData[iIndex][Pistol];
+
+    if(iPistolID != PISTOL_OFF)
+        UTIL_give_item(iIndex, g_PistolClassNames[iPistolID], GT_REPLACE, g_Pistols[iPistolID][PISTOL_AMMO]);
+
+#if defined GIVE_GRENADES  
+    UTIL_give_item(iIndex, "weapon_hegrenade",  GT_APPEND, 0);
+    UTIL_give_item(iIndex, "weapon_flashbang",  GT_APPEND, 2);
+    UTIL_give_item(iIndex, "weapon_smokegrenade", GT_APPEND, 0);
+#endif
+
+#if defined GIVE_DEFUSEKIT_AND_ARMOR
+    new ArmorType:iArmorType;
+
+    if(rg_get_user_armor(iIndex, iArmorType) < ARMOR_VALUE || iArmorType != ARMOR_VESTHELM)
+        rg_set_user_armor(iIndex, min(ARMOR_VALUE, 255), ARMOR_VESTHELM);   
+
+    if(get_member(iIndex, m_iTeam) == TEAM_CT && !get_member(iIndex, m_bHasDefuser))
+        rg_give_defusekit(iIndex, true);        
+#endif
+
+    if(g_aPlayerData[iIndex][Automenu] == STATE_ENABLED)
+    {
+        if(g_iRoundCount >= VIP_ROUND && !get_member(iIndex, m_bHasPrimary))
+            Show_Menu(iIndex, false);
+    } 
+
+    return HC_CONTINUE;             
 } 
 
-public CBasePlayer_TakeDamage(const pevVictim, pevInflictor, pevAttacker, Float: flDamage, bitsDamageType)
+public CBasePlayer_TakeDamage(const pevVictim, pevInflictor, pevAttacker, Float:flDamage, bitsDamageType)
 {
     if(!is_valid_player(pevAttacker) || !is_user_vip(pevAttacker) || g_aPlayerData[pevAttacker][Damager] == STATE_DISABLED || pevVictim == pevAttacker)
         return HC_CONTINUE;
@@ -175,7 +192,7 @@ public CBasePlayer_TakeDamage(const pevVictim, pevInflictor, pevAttacker, Float:
     if(GetHookChainReturn(ATYPE_INTEGER) && flDamage > 0.0)
     {
         set_hudmessage(0, 100, 200, -1.0, 0.6, 0, 0.1, 2.5, 0.02, 0.02);
-        ShowSyncHudMsg(pevAttacker, g_bSyncMsgDamage, "%.0f", flDamage);
+        ShowSyncHudMsg(pevAttacker, g_iSyncMsgDamage, "%.0f", flDamage);
     }
 
     return HC_CONTINUE;
@@ -189,12 +206,9 @@ Show_Menu(iIndex, bool:iCheckBuyZone = true)
     if(!is_allow_use(iIndex, iCheckBuyZone))     
         return PLUGIN_HANDLED;
 
-    new szMenu[512], iLen;
+    new szMenu[512], iLen, iLineNum;
 
     iLen = formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\w[\rVipMenu\w] Меню VIP-Игрока^n");
-
-    static const szPistolText[PISTOL_G18 + 1][] = { "DEAGLE", "USP", "GLOCK" }; 
-    static const szStateText[STATE_ENABLED + 1][] = { "\dOFF", "\rON" };
 
 #if defined ADMIN_LOADER
     new iExp = admin_expired(iIndex);
@@ -214,28 +228,29 @@ Show_Menu(iIndex, bool:iCheckBuyZone = true)
     } else if(iExp == 0) {
         iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\wПривелегия действует: \rбессрочно^n");
     }
-#endif 
+#endif
 
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^n");
-
-    if(VIP_ROUND > g_bRoundCount || g_bUseWeapon[iIndex])
-    {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d1. Взять AK47^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d2. Взять M4A1^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d3. Взять FAMAS^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d4. Взять SCOUT^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d5. Взять AWP^n^n");
+    if(VIP_ROUND > g_iRoundCount)
+    {    
+        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\R\dСтоимость^n");
     } else {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r1. \wВзять AK47^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r2. \wВзять M4A1^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r3. \wВзять FAMAS^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r4. \wВзять SCOUT^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r5. \wВзять AWP^n^n");    
+        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\R\wСтоимость^n");            
     }
 
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r6. \wПистолет \w[\r%s\w]^n", szPistolText[g_aPlayerData[iIndex][Pistol]]);
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r7. \wДамагер \w[%s\w]^n", szStateText[g_aPlayerData[iIndex][Damager]]);
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r8. \wАвтооткрытие меню \w[%s\w]^n^n", szStateText[g_aPlayerData[iIndex][Automenu]]); 
+    for(new i; i < sizeof g_ItemClassNames; i++)
+    {
+        if(VIP_ROUND > g_iRoundCount)
+        {        
+            iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d%d. Купить %s\R$%d^n", ++iLineNum, g_WeaponName[i], g_Items[i][W_COST]);
+        } else {
+            iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r%d. \wКупить \r%s\R\r$\y%d^n", ++iLineNum, g_WeaponName[i], g_Items[i][W_COST]);    
+        }
+    }
+
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^n");
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r%d. \wПистолет \w[%s\w]^n", ++iLineNum, g_PistolName[g_aPlayerData[iIndex][Pistol]]);
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r%d. \wДамагер \w[%s\w]^n", ++iLineNum, g_State[g_aPlayerData[iIndex][Damager]]);
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r%d. \wАвтооткрытие меню \w[%s\w]^n^n", ++iLineNum, g_State[g_aPlayerData[iIndex][Automenu]]); 
 
     iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r0. \wВыход");
          
@@ -246,89 +261,26 @@ Show_Menu(iIndex, bool:iCheckBuyZone = true)
 
 public Menu_Handler(iIndex, iKey)
 {
-    if(VIP_ROUND > g_bRoundCount)
-    {
-        if(iKey <= 4) 
-        {
-            if(g_bRoundCount == 0)
-            {
-                client_print(iIndex, print_center, "Основное оружие доступно с %d-го раунда!^rСейчас идет разминочный раунд.", VIP_ROUND);  
-            } else {
-                client_print(iIndex, print_center, "Основное оружие доступно с %d-го раунда!^rСейчас идет %d-й раунд.", VIP_ROUND, g_bRoundCount);                                 
-            }
-
-            return Show_Menu(iIndex);
-        }    
-    } else {
-        if(iKey <= 4 && g_bUseWeapon[iIndex]) 
-        {
-            client_print(iIndex, print_center, "Вы уже воспользовались основным оружием из Vip-меню в текущем раунде!");
-
-            return Show_Menu(iIndex);
-        }       
-    }
+    new iPlayerMoney, iPistolID;
 
     switch(iKey)
-    {
-        case 0:
-        {
-            rg_give_item(iIndex, "weapon_ak47", GT_REPLACE);
-            rg_set_user_bpammo(iIndex, WEAPON_AK47, 90); 
-        }
-        case 1:
-        {
-            rg_give_item(iIndex, "weapon_m4a1", GT_REPLACE);
-            rg_set_user_bpammo(iIndex, WEAPON_M4A1, 90); 
-        }
-        case 2:
-        {
-            rg_give_item(iIndex, "weapon_famas", GT_REPLACE);
-            rg_set_user_bpammo(iIndex, WEAPON_FAMAS, 90); 
-        }
-        case 3:
-        {
-            rg_give_item(iIndex, "weapon_scout", GT_REPLACE);
-            rg_set_user_bpammo(iIndex, WEAPON_SCOUT, 90);
-        }
-        case 4:
-        {
-            if(containi(g_bMapName, "2x2") != -1)
-            { 
-                client_print(iIndex, print_center, "Вы не можете взять данное оружие на текущей карте!");
-
-                return Show_Menu(iIndex);
-            } else {
-                rg_give_item(iIndex, "weapon_awp", GT_REPLACE);
-                rg_set_user_bpammo(iIndex, WEAPON_AWP, 30);     
-            }
-        }       
-        case 5:
+    {     
+        case 6:
         {
             switch(g_aPlayerData[iIndex][Pistol])
             {
-                case PISTOL_DGL: 
-                {
-                    rg_give_item(iIndex, "weapon_usp", GT_REPLACE);
-                    rg_set_user_bpammo(iIndex, WEAPON_USP, 100);                    
-                    g_aPlayerData[iIndex][Pistol] = PISTOL_USP;
-                }
-                case PISTOL_USP:
-                {
-                    rg_give_item(iIndex, "weapon_glock18", GT_REPLACE);
-                    rg_set_user_bpammo(iIndex, WEAPON_GLOCK18, 120);
-                    g_aPlayerData[iIndex][Pistol] = PISTOL_G18;
-                }
-                case PISTOL_G18: 
-                {
-                    rg_give_item(iIndex, "weapon_deagle", GT_REPLACE);
-                    rg_set_user_bpammo(iIndex, WEAPON_DEAGLE, 35);
-                    g_aPlayerData[iIndex][Pistol] = PISTOL_DGL;
-                }
-            } 
+                case PISTOL_DGL: g_aPlayerData[iIndex][Pistol] = PISTOL_OFF;
+                case PISTOL_USP: g_aPlayerData[iIndex][Pistol] = PISTOL_G18;
+                case PISTOL_G18: g_aPlayerData[iIndex][Pistol] = PISTOL_DGL;
+                case PISTOL_OFF: g_aPlayerData[iIndex][Pistol] = PISTOL_USP;
+            }
 
-            Show_Menu(iIndex);
+            iPistolID = g_aPlayerData[iIndex][Pistol];
+
+            if(g_iRoundCount >= SPAWN_EQUIP_ROUND && iPistolID != PISTOL_OFF)
+                UTIL_give_item(iIndex, g_PistolClassNames[iPistolID], GT_REPLACE, g_Pistols[iPistolID][PISTOL_AMMO]);
         }
-        case 6:
+        case 7:
         {
             switch(g_aPlayerData[iIndex][Damager])
             {
@@ -343,10 +295,8 @@ public Menu_Handler(iIndex, iKey)
                     client_print(iIndex, print_center, "Показ нанесенного урона отключен!");
                 }
             }
-
-            Show_Menu(iIndex);
         }
-        case 7:
+        case 8:
         {
             switch(g_aPlayerData[iIndex][Automenu])
             {
@@ -361,16 +311,47 @@ public Menu_Handler(iIndex, iKey)
                     client_print(iIndex, print_center, "Автооткрытие меню отключено!");
                 }
             }
-
-            Show_Menu(iIndex);
         }
     }
 
-    if(iKey <= 4)
-        g_bUseWeapon[iIndex] = true;
+    if(iKey <= charsmax(g_ItemClassNames)) 
+    {
+        if(g_iRoundCount == 0)
+        {
+            client_print(iIndex, print_center, "Основное оружие доступно с %d-го раунда!^rСейчас идет разминочный раунд.", VIP_ROUND);
+            return Show_Menu(iIndex);
+        } else if(VIP_ROUND > g_iRoundCount) {
+            client_print(iIndex, print_center, "Основное оружие доступно с %d-го раунда!^rСейчас идет %d-й раунд.", VIP_ROUND, g_iRoundCount);
+            return Show_Menu(iIndex);                               
+        }
 
-    if(iKey > 4)
-        SaveUserInfo(iIndex);
+    #if defined RESTRICT_AWP_ON_2x2_MAPS
+        if(equali(g_ItemClassNames[iKey], "weapon_awp"))
+        {
+            if(containi(g_MapName, "2x2") != -1)
+            {
+                client_print(iIndex, print_center, "Данное оружие недоступно на текущей карте!");
+                return Show_Menu(iIndex);
+            }
+        }
+    #endif
+
+        iPlayerMoney = get_member(iIndex, m_iAccount);
+
+        if(iPlayerMoney < g_Items[iKey][W_COST])
+        {
+            client_print(iIndex, print_center, "Недостаточно средств для покупки данного предмета!");
+            return Show_Menu(iIndex);
+           }
+
+        UTIL_give_item(iIndex, g_ItemClassNames[iKey], GT_REPLACE, g_Items[iKey][W_AMMO]);
+        rg_add_account(iIndex, iPlayerMoney - g_Items[iKey][W_COST], AS_SET);
+    } else {
+        if(iKey != 9) 
+            Show_Menu(iIndex);
+
+        save_user_settings(iIndex);
+    }
 
     return PLUGIN_HANDLED;    
 } 
@@ -379,28 +360,20 @@ public Event_HideStatusIcon(iIndex)
 {
     new iViewMenu, iMenuKey;  
 
-    if(get_user_menu (iIndex, iViewMenu, iMenuKey) == 1 && iViewMenu == g_bMenuId)
+    if(get_user_menu (iIndex, iViewMenu, iMenuKey) == 1 && iViewMenu == g_iMenuId)
         show_menu(iIndex, 0, "^n", 1);
 }
 
-SaveUserInfo(pPlayer)
+save_user_settings(iIndex)
 {
-    if(g_aPlayerData[pPlayer][AuthId][0] > 0)
-        nvault_set_array(g_hVault, g_aPlayerData[pPlayer][AuthId], g_aPlayerData[pPlayer], player_s);
+    if(g_aPlayerData[iIndex][AuthId][0] > 0)
+        nvault_set_array(g_hVault, g_aPlayerData[iIndex][AuthId], g_aPlayerData[iIndex], PLAYER_DATA);
 }
 
-bool:is_bonus_spawn(iIndex)
+public plugin_end() 
 {
-    if(!is_user_alive(iIndex))
-        return false;
-
-    if(!is_user_vip(iIndex))
-        return false;
-
-    if(g_bMapsBlock)
-        return false;
-
-    return true;
+    if(g_hVault != INVALID_HANDLE)
+        nvault_close(g_hVault);
 }
 
 bool:is_allow_use(iIndex, bool:iCheckBuyZone)
@@ -423,7 +396,7 @@ bool:is_allow_use(iIndex, bool:iCheckBuyZone)
         return false;
     }
 
-    if(iCheckBuyZone && !rg_user_in_buyzone(iIndex))
+    if(iCheckBuyZone && !UTIL_user_in_buyzone(iIndex))
     {
         client_print(iIndex, print_center, "Вы должны находиться в зоне закупки!");
         return false;
@@ -438,11 +411,19 @@ bool:is_allow_use(iIndex, bool:iCheckBuyZone)
     return true;                                                                                                           
 }
 
-stock bool:rg_user_in_buyzone(const pPlayer)
+stock UTIL_give_item(const iIndex, const iWeapon[], GiveType:GtState, iAmmount)
+{
+    rg_give_item(iIndex, iWeapon, GtState);
+
+    if(iAmmount)
+        rg_set_user_bpammo(iIndex, rg_get_weapon_info(iWeapon, WI_ID), iAmmount);
+}
+
+stock bool:UTIL_user_in_buyzone(const iIndex)
 {
     new iSignals[UnifiedSignals];
 
-    get_member(pPlayer, m_signals, iSignals);
+    get_member(iIndex, m_signals, iSignals);
 
     return bool:(SignalState:iSignals[US_State] & SIGNAL_BUY);   
 }
