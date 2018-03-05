@@ -9,7 +9,7 @@
 #include <engine>
 
 new const PLUGIN_NAME[]    = "Walls Creator";
-new const PLUGIN_VERSION[] = "0.9.16b";
+new const PLUGIN_VERSION[] = "0.9.19b";
 new const PLUGIN_AUTHOR[]  = "d3m37r4";
 
 const ACCESS_FLAG = ADMIN_LEVEL_A;						// Флаг доступа к меню создания/редактирования/удаления заграждения
@@ -63,28 +63,7 @@ public plugin_precache()
     g_iSetupUnits = 10; 
 }
 
-public plugin_init()
-{
-    register_plugin(PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR);
-
-    register_clcmd("wallscreator", "PreOpen_WallsCreatorMenu", ACCESS_FLAG);
-
-    register_menucmd(register_menuid("WallsCreator Menu"), 1023, "WallsCreator_MenuHandler");
-    register_menucmd(register_menuid("WallsCreator EditMenu"), 1023, "WallsCreator_EditMenuHandler");
-    register_menucmd(register_menuid("WallsCreator KillMenu"), 1023, "WallsCreator_KillMenuHandler");
-
-    set_task(1.0, "task_LoadWalls");
-}
-
-public client_disconnected(iIndex)
-{
-    if(iIndex == g_iEditorID)
-        HideAllWalls();
-
-    g_iEditorID = 0;
-}
-
-public task_LoadWalls()
+public plugin_cfg()
 {
     new szFileDir[128], iResidue;
 
@@ -97,7 +76,7 @@ public task_LoadWalls()
     {
         case 0:
         {
-            server_print("[%s] Warning: for map ^"%s^", there is no file with location of barriers.", PLUGIN_NAME, g_MapName);
+            server_print("[%s] Warning: there is no file with location of barriers for map ^"%s^"!", PLUGIN_NAME, g_MapName);
             return;
         }
         case 1: 
@@ -151,13 +130,32 @@ public task_LoadWalls()
 
     if(!g_iWallsCount)
     {
-        server_print("[%s] Warning: file ^"%s^" is empty.", PLUGIN_NAME, szFileDir);
+        server_print("[%s] Warning: file ^"%s^" is empty!", PLUGIN_NAME, szFileDir);
     } else {
     	g_iWall_ID = 1;
         iResidue = g_iWallsMax % 10;
 
         server_print("[%s] Success: %d barrier%s were uploaded to ^"%s^" map.", PLUGIN_NAME, g_iWallsMax, (iResidue < 1) ? "s" : "", g_MapName); 
     }
+}
+
+public plugin_init()
+{
+    register_plugin(PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR);
+
+    register_clcmd("wallscreator", "PreOpen_WallsCreatorMenu", ACCESS_FLAG);
+
+    register_menucmd(register_menuid("WallsCreator Menu"), 1023, "WallsCreator_MenuHandler");
+    register_menucmd(register_menuid("WallsCreator EditMenu"), 1023, "WallsCreator_EditMenuHandler");
+    register_menucmd(register_menuid("WallsCreator KillMenu"), 1023, "WallsCreator_KillMenuHandler");
+}
+
+public client_disconnected(iIndex)
+{
+    if(iIndex == g_iEditorID)
+        HideAllWalls();
+
+    g_iEditorID = 0;
 }
 
 public task_ShowWallBox(iEnt)
@@ -620,7 +618,7 @@ stock UTIL_VisualizeVector(Float:vStartX, Float:vStartY, Float:vStartZ, Float:vE
     write_short(g_BeamSprite);
     write_byte(1);           // Стартовый кадр
     write_byte(1);           // Скорость анимации 
-    write_byte(6);           // Время существования/life in 0.1's 
+    write_byte(8);           // Время существования/life in 0.1's 
     write_byte(8);           // Толщина луча
     write_byte(0);           // Искажение 
     write_byte(iColor[0]);   // Цвет красный 
