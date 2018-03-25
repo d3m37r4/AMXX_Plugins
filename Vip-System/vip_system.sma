@@ -3,7 +3,7 @@
 #include <nvault_array>
        
 new const PLUGIN_NAME[]    = "Vip System";
-new const PLUGIN_VERSION[] = "3.2.2";
+new const PLUGIN_VERSION[] = "3.2.3";
 new const PLUGIN_AUTHOR[]  = "d3m37r4";
 
 #define ADMIN_LOADER                                            // Совместимость с Admin Loader от neygomon
@@ -47,12 +47,11 @@ new g_hVault = INVALID_HANDLE;
 new g_aPlayerData[MAX_CLIENTS + 1][PLAYER_DATA];
 
 new g_iCvarBuyTime, Float:g_flBuyTime;
-new g_iMaxPlayers, g_iMenuId, g_iRoundCount, g_iSyncMsgDamage;
+new g_iMenuId, g_iRoundCount, g_iSyncMsgDamage;
 
 new HookChain:g_hookOnSpawnEquip;
 new bool:g_bMapsBlock, g_MapName[32];
 
-#define is_valid_player(%1)     (1 <= (%1) <= g_iMaxPlayers)
 #define is_user_vip(%1)         (get_user_flags(%1) & VIP_ACCESS)
 
 #if defined ADMIN_LOADER 
@@ -91,6 +90,9 @@ public plugin_cfg()
             break;
         }
     } 
+    
+    g_iCvarBuyTime = get_cvar_pointer("mp_buytime");    
+    bind_pcvar_float(g_iCvarBuyTime, g_flBuyTime);    
 }
 
 public plugin_init()
@@ -110,11 +112,7 @@ public plugin_init()
     RegisterHookChain(RG_CBasePlayer_TakeDamage, "CBasePlayer_TakeDamage", true); 
     DisableHookChain((g_hookOnSpawnEquip = RegisterHookChain(RG_CBasePlayer_OnSpawnEquip, "CBasePlayer_OnSpawnEquip", true))); 
     
-    g_iCvarBuyTime   = get_cvar_pointer("mp_buytime");
-    g_flBuyTime      = get_pcvar_float(g_iCvarBuyTime);
-
     g_iSyncMsgDamage = CreateHudSyncObj();
-    g_iMaxPlayers    = get_maxplayers();    
 } 
 
 public client_disconnected(iIndex)
@@ -186,7 +184,7 @@ public CBasePlayer_OnSpawnEquip(const iIndex)
 
 public CBasePlayer_TakeDamage(const pevVictim, pevInflictor, pevAttacker, Float:flDamage, bitsDamageType)
 {
-    if(!is_valid_player(pevAttacker) || !is_user_vip(pevAttacker) || g_aPlayerData[pevAttacker][Damager] == STATE_DISABLED || pevVictim == pevAttacker)
+    if(!is_user_connected(pevAttacker) || !is_user_vip(pevAttacker) || g_aPlayerData[pevAttacker][Damager] == STATE_DISABLED || pevVictim == pevAttacker)
         return HC_CONTINUE;
 
     if(GetHookChainReturn(ATYPE_INTEGER) && flDamage > 0.0)
