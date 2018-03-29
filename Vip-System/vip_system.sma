@@ -3,7 +3,7 @@
 #include <nvault_array>
        
 new const PLUGIN_NAME[]    = "Vip System";
-new const PLUGIN_VERSION[] = "3.2.3";
+new const PLUGIN_VERSION[] = "3.2.4";
 new const PLUGIN_AUTHOR[]  = "d3m37r4";
 
 #define ADMIN_LOADER                                            // Совместимость с Admin Loader от neygomon
@@ -41,9 +41,8 @@ new const g_State[STATE_TYPE][] = {"\dOFF", "\rON"};
 
 new const KEYS_MENU = MENU_KEY_1|MENU_KEY_2|MENU_KEY_3|MENU_KEY_4|MENU_KEY_5|MENU_KEY_6|MENU_KEY_7|MENU_KEY_8|MENU_KEY_9|MENU_KEY_0;
 
-new g_Items[MAX_ITEMS + 1][WEAPON_INFO], g_Pistols[MAX_PISTOLS][PISTOL_INFO];
-
-new g_hVault = INVALID_HANDLE;
+new g_Items[MAX_ITEMS + 1][WEAPON_INFO];
+new g_Pistols[MAX_PISTOLS][PISTOL_INFO];
 new g_aPlayerData[MAX_CLIENTS + 1][PLAYER_DATA];
 
 new g_iCvarBuyTime, Float:g_flBuyTime;
@@ -51,6 +50,8 @@ new g_iMenuId, g_iRoundCount, g_iSyncMsgDamage;
 
 new HookChain:g_hookOnSpawnEquip;
 new bool:g_bMapsBlock, g_MapName[32];
+
+new g_hVault = INVALID_HANDLE;
 
 #define is_user_vip(%1)         (get_user_flags(%1) & VIP_ACCESS)
 
@@ -90,9 +91,11 @@ public plugin_cfg()
             break;
         }
     } 
-    
+
+    g_iSyncMsgDamage = CreateHudSyncObj();
+
     g_iCvarBuyTime = get_cvar_pointer("mp_buytime");    
-    bind_pcvar_float(g_iCvarBuyTime, g_flBuyTime);    
+    bind_pcvar_float(g_iCvarBuyTime, g_flBuyTime);
 }
 
 public plugin_init()
@@ -110,9 +113,7 @@ public plugin_init()
 
     RegisterHookChain(RG_CSGameRules_RestartRound, "CSGameRules_RestartRound_Pre", false);
     RegisterHookChain(RG_CBasePlayer_TakeDamage, "CBasePlayer_TakeDamage", true); 
-    DisableHookChain((g_hookOnSpawnEquip = RegisterHookChain(RG_CBasePlayer_OnSpawnEquip, "CBasePlayer_OnSpawnEquip", true))); 
-    
-    g_iSyncMsgDamage = CreateHudSyncObj();
+    DisableHookChain((g_hookOnSpawnEquip = RegisterHookChain(RG_CBasePlayer_OnSpawnEquip, "CBasePlayer_OnSpawnEquip", true)));    
 } 
 
 public client_disconnected(iIndex)
@@ -123,7 +124,7 @@ public client_putinserver(iIndex)
     g_aPlayerData[iIndex][AuthId][0] = 0;
 
     if(!is_user_vip(iIndex))
-        return;
+        return PLUGIN_HANDLED;
     
     get_user_authid(iIndex, g_aPlayerData[iIndex][AuthId], charsmax(g_aPlayerData[][AuthId]));
 
@@ -133,6 +134,8 @@ public client_putinserver(iIndex)
         g_aPlayerData[iIndex][Pistol] = PISTOL_DGL;
         g_aPlayerData[iIndex][Automenu] = STATE_DISABLED;
     }
+
+    return PLUGIN_HANDLED;
 }
             
 public CSGameRules_RestartRound_Pre()
@@ -149,7 +152,7 @@ public CSGameRules_RestartRound_Pre()
 
 public CBasePlayer_OnSpawnEquip(const iIndex)
 { 
-    if(!is_user_vip(iIndex))
+    if(!is_user_connected(iIndex) || !is_user_vip(iIndex))
         return HC_CONTINUE;
 
     new iPistolID = g_aPlayerData[iIndex][Pistol];
@@ -187,10 +190,12 @@ public CBasePlayer_TakeDamage(const pevVictim, pevInflictor, pevAttacker, Float:
     if(!is_user_connected(pevAttacker) || !is_user_vip(pevAttacker) || g_aPlayerData[pevAttacker][Damager] == STATE_DISABLED || pevVictim == pevAttacker)
         return HC_CONTINUE;
 
-    if(GetHookChainReturn(ATYPE_INTEGER) && flDamage > 0.0)
+    new dmg = floatround(flDamage, floatround_floor);
+
+    if(GetHookChainReturn(ATYPE_INTEGER) && dmg > 0)
     {
         set_hudmessage(0, 100, 200, -1.0, 0.6, 0, 0.1, 2.5, 0.02, 0.02);
-        ShowSyncHudMsg(pevAttacker, g_iSyncMsgDamage, "%.0f", flDamage);
+        ShowSyncHudMsg(pevAttacker, g_iSyncMsgDamage, "%d", dmg);
     }
 
     return HC_CONTINUE;
@@ -216,9 +221,11 @@ Show_Menu(iIndex, bool:iCheckBuyZone = true)
 
         if(iExp - iSysTime > 0)
         {
-            if((iExp - iSysTime) / 86400 > 0)
+            new iTimeInDay = (iExp - iSysTime) / 86400;
+
+            if(iTimeInDay > 0)
             {
-                iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\wПривелегия действует: еще \r%d \wдн.^n", ((iExp - iSysTime) / 86400));
+                iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\wПривелегия действует: еще \r%d \wдн.^n", iTimeInDay);
             } else {
                 iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\wПривелегия действует: \rпоследний день^n");
             }
@@ -246,9 +253,9 @@ Show_Menu(iIndex, bool:iCheckBuyZone = true)
     }
 
     iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^n");
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r%d. \wПистолет \w[%s\w]^n", ++iLineNum, g_PistolName[g_aPlayerData[iIndex][Pistol]]);
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r%d. \wДамагер \w[%s\w]^n", ++iLineNum, g_State[g_aPlayerData[iIndex][Damager]]);
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r%d. \wАвтооткрытие меню \w[%s\w]^n^n", ++iLineNum, g_State[g_aPlayerData[iIndex][Automenu]]); 
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r7. \wПистолет \w[%s\w]^n", g_PistolName[g_aPlayerData[iIndex][Pistol]]);
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r8. \wДамагер \w[%s\w]^n", g_State[g_aPlayerData[iIndex][Damager]]);
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r9. \wАвтооткрытие меню \w[%s\w]^n^n", g_State[g_aPlayerData[iIndex][Automenu]]); 
 
     iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r0. \wВыход");
          
@@ -276,7 +283,15 @@ public Menu_Handler(iIndex, iKey)
             iPistolID = g_aPlayerData[iIndex][Pistol];
 
             if(g_iRoundCount >= SPAWN_EQUIP_ROUND && iPistolID != PISTOL_OFF)
+            {
                 UTIL_give_item(iIndex, g_PistolClassNames[iPistolID], GT_REPLACE, g_Pistols[iPistolID][PISTOL_AMMO]);
+            } else if(iPistolID == PISTOL_OFF) {
+                switch(get_member(iIndex, m_iTeam))
+                {
+                    case TEAM_TERRORIST: UTIL_give_item(iIndex, g_PistolClassNames[PISTOL_G18], GT_REPLACE, g_Pistols[PISTOL_G18][PISTOL_AMMO]);
+                    case TEAM_CT: UTIL_give_item(iIndex, g_PistolClassNames[PISTOL_USP], GT_REPLACE, g_Pistols[PISTOL_USP][PISTOL_AMMO]);
+                }
+            }
         }
         case 7:
         {
@@ -340,7 +355,7 @@ public Menu_Handler(iIndex, iKey)
         {
             client_print(iIndex, print_center, "Недостаточно средств для покупки данного предмета!");
             return Show_Menu(iIndex);
-           }
+        }
 
         UTIL_give_item(iIndex, g_ItemClassNames[iKey], GT_REPLACE, g_Items[iKey][W_AMMO]);
         rg_add_account(iIndex, iPlayerMoney - g_Items[iKey][W_COST], AS_SET);
