@@ -1,3 +1,7 @@
+/*
+      Thanks: neygomon (for some code snippets), Vaqtincha (for advices on code).
+*/
+
 #include <amxmodx>
 #include <reapi>
 #include <nvault_array>
@@ -6,8 +10,8 @@ new const PLUGIN_NAME[]    = "Vip System";
 new const PLUGIN_VERSION[] = "3.2.4";
 new const PLUGIN_AUTHOR[]  = "d3m37r4";
 
-#define ADMIN_LOADER                                            // Совместимость с Admin Loader от neygomon
-//#define GIVE_DEFUSEKIT_AND_ARMOR                              // Выдавать бронежилет и DefuseKit (если игрок КТ) в начале раунда
+#define ADMIN_LOADER                                            // Вывод кол-ва дней до окончания действия привилегии (Admin Loader от neygomon или Admin Load от F@nt0M) 
+//#define GIVE_DEFUSEKIT_AND_ARMOR                              // Выдавать бронежилет и DefuseKit в начале раунда (DefuseKit выдается только CT)
 #define GIVE_GRENADES                                           // Выдавать гранаты в начале раунда
 #define RESTRICT_AWP_ON_2x2_MAPS                                // Запрещать покупку awp на картах 2x2
 
@@ -35,7 +39,7 @@ new const g_WeaponName[MAX_ITEMS + 1][]   = {"AK47", "M4A1", "FAMAS", "GALIL", "
 new const g_PistolClassNames[MAX_PISTOLS][] = {"weapon_deagle", "weapon_usp", "weapon_glock18"};
 new const g_ItemClassNames[MAX_ITEMS + 1][] = {"weapon_ak47", "weapon_m4a1", "weapon_famas", "weapon_galil", "weapon_scout", "weapon_awp"};
 
-new const g_VaultFile[]          = "vip_system_data";
+new const g_VaultFile[]         = "vip_system_data";
 new const g_MapPrefix[][]       = {"awp_", "aim_", "35hp", "fy_", "$"};
 new const g_State[STATE_TYPE][] = {"\dOFF", "\rON"};
 
