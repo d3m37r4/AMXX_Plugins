@@ -120,7 +120,7 @@ public plugin_cfg()
 public plugin_init()
 {                                       
     register_clcmd("amx_mapmenu", "cmd_MapMenu", ACCESS_FLAG);
-    register_clcmd("amx_votemenu", "cmd_VoteMenu", ACCESS_FLAG);
+    register_clcmd("amx_votemapmenu", "cmd_VoteMenu", ACCESS_FLAG);
 
 #if defined CMD_BLOCK_ON_START_VOTE 
     for(new i; i < sizeof g_Commands; i++)
