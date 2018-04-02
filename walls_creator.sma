@@ -1,20 +1,26 @@
 /*
-
     Plugin is based on WalkGuard (https://forums.alliedmods.net/showthread.php?t=55245).
     Thanks a mogel (https://forums.alliedmods.net/member.php?u=24745) for base (WalkGuard v1.3.2).
-
 */
 
 #include <amxmodx>
 #include <engine>
 
+#if AMXX_VERSION_NUM < 183
+    #include <colorchat>
+#endif
+
+#if !defined client_disconnected
+    #define client_disconnected client_disconnect
+#endif
+
 new const PLUGIN_NAME[]    = "Walls Creator";
-new const PLUGIN_VERSION[] = "0.9.19b";
+new const PLUGIN_VERSION[] = "1.0";
 new const PLUGIN_AUTHOR[]  = "d3m37r4";
 
-const ACCESS_FLAG = ADMIN_LEVEL_A;						// Флаг доступа к меню создания/редактирования/удаления заграждения
+const ACCESS_FLAG = ADMIN_LEVEL_A;                      // Флаг доступа к меню создания/редактирования/удаления заграждения
 
-const MAX_WALLS          = 64;							// Максимальное кол-во заграждений на карте
+const MAX_WALLS          = 64;                          // Максимальное кол-во заграждений на карте
 const TASK_ID_SHOW_WALLS = 1024;
 
 #if !defined NULLENT
@@ -25,12 +31,11 @@ new const FOLDER_NAME[] = "walls_data";                 // Папка в кот�
 new const FILE_FORMAT[] = "dat";                        // Формат файлов
 
 new const ENT_CLASSNAME[] = "wall_ent";
-new const ENT_SET_MODEL[] = "models/gib_skull.mdl";		// valve/models/gib_skull.mdl
+new const ENT_SET_MODEL[] = "models/gib_skull.mdl";     // valve/models/gib_skull.mdl
+new const SPRITE_BEAM[]   = "sprites/laserbeam.spr";    // valve/sprites/laserbeam.spr
 
-new const SPRITE_BEAM[]   = "sprites/laserbeam.spr";	// valve/sprites/laserbeam.spr
-
-enum _:POS {Float:X, Float:Y, Float:Z};
-enum _:TYPE {WALL_DEFAULT, ACTIVE_WALL, RED, YELLOW};
+enum {X, Y, Z};
+enum _:TYPE {WALL_DEFAULT, ACTIVE_WALL, RED_WALL, YELLOW_WALL};
 enum _:COLOR {R, G, B};
 
 new const g_Coord[3][] = {"X", "Y", "Z"};
@@ -41,15 +46,17 @@ new const g_Color[TYPE][COLOR] = {
     {255, 255, 0}
 };
 
-new Float:g_vecDefMins[POS] = {-32.0, -32.0, -32.0};
-new Float:g_vecDefMaxs[POS] = {32.0, 32.0, 32.0};
+new Float:g_vecDefMins[3] = {-32.0, -32.0, -32.0};
+new Float:g_vecDefMaxs[3] = {32.0, 32.0, 32.0};
 
-new Float:g_WallPos[MAX_WALLS + 1][POS];
-new Float:g_WallMins[MAX_WALLS + 1][POS];
-new Float:g_WallMaxs[MAX_WALLS + 1][POS];
+new Float:g_WallPos[MAX_WALLS + 1][3];
+new Float:g_WallMins[MAX_WALLS + 1][3];
+new Float:g_WallMaxs[MAX_WALLS + 1][3];
 
-new g_iEditorID;
-new g_iDirection, g_iSetupUnits;
+new g_iEditorID = 0;
+new g_iDirection = 0;
+new g_iSetupUnits = 10;
+
 new g_iWallsCount, g_iWallsMax, g_iWall_ID;
 new g_iWallIndex[MAX_WALLS + 1];
 new g_BeamSprite;
@@ -59,13 +66,11 @@ public plugin_precache()
 {
     precache_model(ENT_SET_MODEL);
     g_BeamSprite = precache_model(SPRITE_BEAM);
-
-    g_iSetupUnits = 10; 
 }
 
 public plugin_cfg()
 {
-    new szFileDir[128], iResidue;
+    new szFileDir[128];
 
     get_localinfo("amxx_configsdir", szFileDir, charsmax(szFileDir));
     get_mapname(g_MapName, charsmax(g_MapName));
@@ -104,17 +109,9 @@ public plugin_cfg()
                         szArgMaxsX, charsmax(szArgMaxsX), szArgMaxsY, charsmax(szArgMaxsY), szArgMaxsZ, charsmax(szArgMaxsZ)
                     );
 
-                    g_WallPos[g_iWallsCount][X] = str_to_float(szArgPosX);
-                    g_WallPos[g_iWallsCount][Y] = str_to_float(szArgPosY);
-                    g_WallPos[g_iWallsCount][Z] = str_to_float(szArgPosZ);
-
-                    g_WallMins[g_iWallsCount][X] = str_to_float(szArgMinsX);
-                    g_WallMins[g_iWallsCount][Y] = str_to_float(szArgMinsY);
-                    g_WallMins[g_iWallsCount][Z] = str_to_float(szArgMinsZ);
-
-                    g_WallMaxs[g_iWallsCount][X] = str_to_float(szArgMaxsX);
-                    g_WallMaxs[g_iWallsCount][Y] = str_to_float(szArgMaxsY);
-                    g_WallMaxs[g_iWallsCount][Z] = str_to_float(szArgMaxsZ);
+                    UTIL_Vec_Set(g_WallPos[g_iWallsCount], str_to_float(szArgPosX), str_to_float(szArgPosY), str_to_float(szArgPosZ));
+                    UTIL_Vec_Set(g_WallMins[g_iWallsCount], str_to_float(szArgMinsX), str_to_float(szArgMinsY), str_to_float(szArgMinsZ));
+                    UTIL_Vec_Set(g_WallMaxs[g_iWallsCount], str_to_float(szArgMaxsX), str_to_float(szArgMaxsY), str_to_float(szArgMaxsZ));
 
                     g_iWallIndex[g_iWallsCount] = CreateNewWall(g_WallPos[g_iWallsCount], g_WallMins[g_iWallsCount], g_WallMaxs[g_iWallsCount]);
                     g_iWallsCount++;
@@ -132,10 +129,9 @@ public plugin_cfg()
     {
         server_print("[%s] Warning: file ^"%s^" is empty!", PLUGIN_NAME, szFileDir);
     } else {
-    	g_iWall_ID = 1;
-        iResidue = g_iWallsMax % 10;
+        g_iWall_ID = g_iWallsMax;
 
-        server_print("[%s] Success: %d barrier%s were uploaded to ^"%s^" map.", PLUGIN_NAME, g_iWallsMax, (iResidue < 1) ? "s" : "", g_MapName); 
+        server_print("[%s] Success: %d barrier%s were uploaded to ^"%s^" map.", PLUGIN_NAME, g_iWallsMax, (g_iWallsMax > 1) ? "s" : "", g_MapName); 
     }
 }
 
@@ -153,10 +149,14 @@ public plugin_init()
 public client_disconnected(iIndex)
 {
     if(iIndex == g_iEditorID)
+    {
         HideAllWalls();
-
-    g_iEditorID = 0;
+        g_iEditorID = 0;
+    }
 }
+
+public plugin_end()
+    SaveAllWalls(0)
 
 public task_ShowWallBox(iEnt)
 {
@@ -178,7 +178,7 @@ public task_ShowWallBox(iEnt)
     trace_line(NULLENT, vEditorPos, vPos, vReturn);
 
     if(iEnt == g_iWallIndex[g_iWall_ID])
-        UTIL_VisualizeVector(vEditorPos[0], vEditorPos[1], vEditorPos[2] - 16.0, vPos[0], vPos[1], vPos[2], g_Color[RED]);
+        UTIL_VisualizeVector(vEditorPos[0], vEditorPos[1], vEditorPos[2] - 16.0, vPos[0], vPos[1], vPos[2], g_Color[RED_WALL]);
 
     new Float:dh = vector_distance(vEditorPos, vPos) - vector_distance(vEditorPos, vReturn)
 
@@ -190,56 +190,40 @@ public task_ShowWallBox(iEnt)
     entity_get_vector(iEnt, EV_VEC_mins, vMins);
     entity_get_vector(iEnt, EV_VEC_maxs, vMaxs);
 
-    vMins[0] += vPos[0];
-    vMins[1] += vPos[1];
-    vMins[2] += vPos[2];
-
-    vMaxs[0] += vPos[0];
-    vMaxs[1] += vPos[1];
-    vMaxs[2] += vPos[2];
+    UTIL_Vec_Add(vMins, vPos, vMins);
+    UTIL_Vec_Add(vMaxs, vPos, vMaxs);
     
-    iColor[0] = (g_iWallIndex[g_iWall_ID] == iEnt) ? g_Color[ACTIVE_WALL][R] : g_Color[WALL_DEFAULT][R];
-    iColor[1] = (g_iWallIndex[g_iWall_ID] == iEnt) ? g_Color[ACTIVE_WALL][G] : g_Color[WALL_DEFAULT][G];
-    iColor[2] = (g_iWallIndex[g_iWall_ID] == iEnt) ? g_Color[ACTIVE_WALL][B] : g_Color[WALL_DEFAULT][B];
+    iColor[R] = (g_iWallIndex[g_iWall_ID] == iEnt) ? g_Color[ACTIVE_WALL][R] : g_Color[WALL_DEFAULT][R];
+    iColor[G] = (g_iWallIndex[g_iWall_ID] == iEnt) ? g_Color[ACTIVE_WALL][G] : g_Color[WALL_DEFAULT][G];
+    iColor[B] = (g_iWallIndex[g_iWall_ID] == iEnt) ? g_Color[ACTIVE_WALL][B] : g_Color[WALL_DEFAULT][B];
     
-    UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMaxs[2], vMins[0], vMaxs[1], vMaxs[2], iColor);
-    UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMaxs[2], vMaxs[0], vMins[1], vMaxs[2], iColor);
-    UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMaxs[2], vMaxs[0], vMaxs[1], vMins[2], iColor);
-    UTIL_VisualizeVector(vMins[0], vMins[1], vMins[2], vMaxs[0], vMins[1], vMins[2], iColor);
-    UTIL_VisualizeVector(vMins[0], vMins[1], vMins[2], vMins[0], vMaxs[1], vMins[2], iColor);
-    UTIL_VisualizeVector(vMins[0], vMins[1], vMins[2], vMins[0], vMins[1], vMaxs[2], iColor);
-    UTIL_VisualizeVector(vMins[0], vMaxs[1], vMaxs[2], vMins[0], vMaxs[1], vMins[2], iColor);
-    UTIL_VisualizeVector(vMins[0], vMaxs[1], vMins[2], vMaxs[0], vMaxs[1], vMins[2], iColor);
-    UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMins[2], vMaxs[0], vMins[1], vMins[2], iColor);
-    UTIL_VisualizeVector(vMaxs[0], vMins[1], vMins[2], vMaxs[0], vMins[1], vMaxs[2], iColor);
-    UTIL_VisualizeVector(vMaxs[0], vMins[1], vMaxs[2], vMins[0], vMins[1], vMaxs[2], iColor);
-    UTIL_VisualizeVector(vMins[0], vMins[1], vMaxs[2], vMins[0], vMaxs[1], vMaxs[2], iColor);
+    UTIL_CreateBox(vMins, vMaxs, iColor);
 
     if(iEnt != g_iWallIndex[g_iWall_ID])
         return;
 
     switch(g_iDirection)
     {
-        case 0:     // X-координата
+        case X:     // X-координата
         {
-            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMaxs[2], vMaxs[0], vMins[1], vMins[2], g_Color[YELLOW]);
-            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMins[2], vMaxs[0], vMins[1], vMaxs[2], g_Color[YELLOW]);
-            UTIL_VisualizeVector(vMins[0], vMaxs[1], vMaxs[2], vMins[0], vMins[1], vMins[2], g_Color[RED]);
-            UTIL_VisualizeVector(vMins[0], vMaxs[1], vMins[2], vMins[0], vMins[1], vMaxs[2], g_Color[RED]);
+            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMaxs[2], vMaxs[0], vMins[1], vMins[2], g_Color[YELLOW_WALL]);
+            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMins[2], vMaxs[0], vMins[1], vMaxs[2], g_Color[YELLOW_WALL]);
+            UTIL_VisualizeVector(vMins[0], vMaxs[1], vMaxs[2], vMins[0], vMins[1], vMins[2], g_Color[RED_WALL]);
+            UTIL_VisualizeVector(vMins[0], vMaxs[1], vMins[2], vMins[0], vMins[1], vMaxs[2], g_Color[RED_WALL]);
         }
-        case 1:     // Y-координата
+        case Y:     // Y-координата
         {
-            UTIL_VisualizeVector(vMins[0], vMins[1], vMins[2], vMaxs[0], vMins[1], vMaxs[2], g_Color[RED]);
-            UTIL_VisualizeVector(vMaxs[0], vMins[1], vMins[2], vMins[0], vMins[1], vMaxs[2], g_Color[RED]);
-            UTIL_VisualizeVector(vMins[0], vMaxs[1], vMins[2], vMaxs[0], vMaxs[1], vMaxs[2], g_Color[YELLOW]);
-            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMins[2], vMins[0], vMaxs[1], vMaxs[2], g_Color[YELLOW]);
+            UTIL_VisualizeVector(vMins[0], vMaxs[1], vMins[2], vMaxs[0], vMaxs[1], vMaxs[2], g_Color[YELLOW_WALL]);
+            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMins[2], vMins[0], vMaxs[1], vMaxs[2], g_Color[YELLOW_WALL]);            
+            UTIL_VisualizeVector(vMins[0], vMins[1], vMins[2], vMaxs[0], vMins[1], vMaxs[2], g_Color[RED_WALL]);
+            UTIL_VisualizeVector(vMaxs[0], vMins[1], vMins[2], vMins[0], vMins[1], vMaxs[2], g_Color[RED_WALL]);
         }
-        case 2:     // Z-координата
+        case Z:     // Z-координата
         {
-            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMaxs[2], vMins[0], vMins[1], vMaxs[2], g_Color[YELLOW]);
-            UTIL_VisualizeVector(vMaxs[0], vMins[1], vMaxs[2], vMins[0], vMaxs[1], vMaxs[2], g_Color[YELLOW]);
-            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMins[2], vMins[0], vMins[1], vMins[2], g_Color[RED]);
-            UTIL_VisualizeVector(vMaxs[0], vMins[1], vMins[2], vMins[0], vMaxs[1], vMins[2], g_Color[RED]);
+            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMaxs[2], vMins[0], vMins[1], vMaxs[2], g_Color[YELLOW_WALL]);
+            UTIL_VisualizeVector(vMaxs[0], vMins[1], vMaxs[2], vMins[0], vMaxs[1], vMaxs[2], g_Color[YELLOW_WALL]);
+            UTIL_VisualizeVector(vMaxs[0], vMaxs[1], vMins[2], vMins[0], vMins[1], vMins[2], g_Color[RED_WALL]);
+            UTIL_VisualizeVector(vMaxs[0], vMins[1], vMins[2], vMins[0], vMaxs[1], vMins[2], g_Color[RED_WALL]);
         }
     }
 }
@@ -265,46 +249,19 @@ public WallsCreator_BuildMenu(iIndex)
 {
     new szMenu[512], iLen;        
  
-    new iKeys = MENU_KEY_0|MENU_KEY_1|MENU_KEY_2|MENU_KEY_0;
+    new iKeys = MENU_KEY_1|MENU_KEY_2|MENU_KEY_3|MENU_KEY_4|MENU_KEY_5|MENU_KEY_9|MENU_KEY_0;
 
     iLen = formatex(szMenu, charsmax(szMenu), "\w[\rWallsCreator Menu\w] Главное меню^n^n");
 
     iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\wВсего заграждений на карте: \r%d^n", g_iWallsMax);
     iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\wВыбрано заграждение: \r%d^n^n", g_iWall_ID);
 
-    if(g_iWall_ID < g_iWallsMax)
-    {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r1. \wСледующее заграждение^n");
-    } else {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d1. \dСледующее заграждение^n");       
-    }
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "%s Следующее заграждение^n", (g_iWall_ID < g_iWallsMax) ? "\r1. \w" : "\d1. ");
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "%s Предыдущее заграждение^n^n", (g_iWall_ID > 1) ? "\r2. \w" : "\d2. ");
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "%s Создать новое заграждение^n^n", (g_iWallsMax < MAX_WALLS) ? "\r3. \w" : "\d3. ");
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "%s Редактировать заграждение^n", is_valid_ent(g_iWallIndex[g_iWall_ID]) ? "\r4. \w" : "\d4. ");
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "%s Удалить заграждение^n^n", is_valid_ent(g_iWallIndex[g_iWall_ID]) ? "\r5. \w" : "\d5. ");
 
-    if(g_iWall_ID > 1)
-    {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r2. \wПредыдущее заграждение^n^n");
-    } else {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d2. \dПредыдущее заграждение^n^n");        
-    }
-
-    if(g_iWallsMax < MAX_WALLS)
-    {
-        iKeys |= MENU_KEY_3;
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r3. \wСоздать новое заграждение^n^n");
-    } else {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d3. \dСоздать новое заграждение^n^n");        
-    }
-
-    if(is_valid_ent(g_iWallIndex[g_iWall_ID]))
-    {
-        iKeys |= MENU_KEY_4|MENU_KEY_5;
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r4. \wРедактировать заграждение^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r5. \wУдалить заграждение^n^n");
-    } else {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d4. \dРедактировать заграждение^n");
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d5. \dУдалить заграждение^n^n");
-    }
-
-    iKeys |= MENU_KEY_9;
     iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r9. \wСохранить настройки^n");
     iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r0. \wВыход");
 
@@ -329,12 +286,12 @@ public WallsCreator_MenuHandler(iIndex, iKey)
         {
             if(g_iWallsMax < MAX_WALLS)
             {
-                new iEnt, Float:vPos[3];
+                new Float:vPos[3];
 
                 entity_get_vector(iIndex, EV_VEC_origin, vPos);
 
-                iEnt = CreateNewWall(vPos, g_vecDefMins, g_vecDefMaxs);
-                g_iWallIndex[++g_iWall_ID] = iEnt;
+                g_iWallIndex[g_iWallsCount] = CreateNewWall(vPos, g_vecDefMins, g_vecDefMaxs);
+                g_iWall_ID = g_iWallsCount;
 
                 ShowAllWalls();
                 WallsCreator_BuildEditMenu(iIndex);
@@ -381,10 +338,11 @@ public WallsCreator_KillMenuHandler(iIndex, iKey)
         case 0:
         {
             remove_entity(g_iWallIndex[g_iWall_ID]);
-            g_iWall_ID = (g_iWall_ID < 1) ? (g_iWall_ID = 1) : --g_iWall_ID;
-
             FindAllWalls();
+
+            g_iWall_ID = g_iWallsMax;
             WallsCreator_BuildMenu(iIndex);  
+
             client_print_color(iIndex, 0, "[Server] Заграждение успешно удалено.");        
         }
         case 1:
@@ -535,10 +493,10 @@ HideAllWalls()
 
     for(new i; i < g_iWallsCount; i++)
     {
-    	if(is_valid_ent(g_iWallIndex[i]))
-    	{
-        	entity_set_int(g_iWallIndex[i], EV_INT_solid, SOLID_BBOX);
-        	remove_task(TASK_ID_SHOW_WALLS + g_iWallIndex[i]);
+        if(is_valid_ent(g_iWallIndex[i]))
+        {
+            entity_set_int(g_iWallIndex[i], EV_INT_solid, SOLID_BBOX);
+            remove_task(TASK_ID_SHOW_WALLS + g_iWallIndex[i]);
         }
     }
 }
@@ -549,13 +507,13 @@ ShowAllWalls()
     
     for(new i; i < g_iWallsCount; i++)
     {
-    	if(is_valid_ent(g_iWallIndex[i]))
-    	{
-    		if(task_exists(TASK_ID_SHOW_WALLS + g_iWallIndex[i]))
-        		remove_task(TASK_ID_SHOW_WALLS + g_iWallIndex[i]);
+        if(is_valid_ent(g_iWallIndex[i]))
+        {
+            if(task_exists(TASK_ID_SHOW_WALLS + g_iWallIndex[i]))
+                remove_task(TASK_ID_SHOW_WALLS + g_iWallIndex[i]);
 
-        	entity_set_int(g_iWallIndex[i], EV_INT_solid, SOLID_NOT);
-        	set_task(0.2, "task_ShowWallBox", TASK_ID_SHOW_WALLS + g_iWallIndex[i], _, _, "b");
+            entity_set_int(g_iWallIndex[i], EV_INT_solid, SOLID_NOT);
+            set_task(0.2, "task_ShowWallBox", TASK_ID_SHOW_WALLS + g_iWallIndex[i], _, _, "b");
         }
     }
 }
@@ -601,7 +559,28 @@ SaveAllWalls(iIndex)
         write_file(szFileDir, szBuffer);
     }
     
-    client_print_color(iIndex, 0, "[Server] Заграждения для текущей карты сохранены в файле ^"^4%s/%s.%s^1^".", FOLDER_NAME, g_MapName, FILE_FORMAT);
+    if(iIndex > 0)
+    {
+        client_print_color(iIndex, 0, "[Server] Заграждения для текущей карты сохранены в файле ^"^4%s/%s.%s^1^".", FOLDER_NAME, g_MapName, FILE_FORMAT);
+    } else if(iIndex == 0) {
+        server_print("[%s] Map Change: All created barriers are stored in file ^"%s/%s.%s^".", PLUGIN_NAME, FOLDER_NAME, g_MapName, FILE_FORMAT);
+    }
+}
+
+stock UTIL_CreateBox(const Float:vecMins[], const Float:vecMaxs[], Color[3])
+{
+    UTIL_VisualizeVector(vecMaxs[0], vecMaxs[1], vecMaxs[2], vecMins[0], vecMaxs[1], vecMaxs[2], Color);
+    UTIL_VisualizeVector(vecMaxs[0], vecMaxs[1], vecMaxs[2], vecMaxs[0], vecMins[1], vecMaxs[2], Color);
+    UTIL_VisualizeVector(vecMaxs[0], vecMaxs[1], vecMaxs[2], vecMaxs[0], vecMaxs[1], vecMins[2], Color);
+    UTIL_VisualizeVector(vecMins[0], vecMins[1], vecMins[2], vecMaxs[0], vecMins[1], vecMins[2], Color);
+    UTIL_VisualizeVector(vecMins[0], vecMins[1], vecMins[2], vecMins[0], vecMaxs[1], vecMins[2], Color);
+    UTIL_VisualizeVector(vecMins[0], vecMins[1], vecMins[2], vecMins[0], vecMins[1], vecMaxs[2], Color);
+    UTIL_VisualizeVector(vecMins[0], vecMaxs[1], vecMaxs[2], vecMins[0], vecMaxs[1], vecMins[2], Color);
+    UTIL_VisualizeVector(vecMins[0], vecMaxs[1], vecMins[2], vecMaxs[0], vecMaxs[1], vecMins[2], Color);
+    UTIL_VisualizeVector(vecMaxs[0], vecMaxs[1], vecMins[2], vecMaxs[0], vecMins[1], vecMins[2], Color);
+    UTIL_VisualizeVector(vecMaxs[0], vecMins[1], vecMins[2], vecMaxs[0], vecMins[1], vecMaxs[2], Color);
+    UTIL_VisualizeVector(vecMaxs[0], vecMins[1], vecMaxs[2], vecMins[0], vecMins[1], vecMaxs[2], Color);
+    UTIL_VisualizeVector(vecMins[0], vecMins[1], vecMaxs[2], vecMins[0], vecMaxs[1], vecMaxs[2], Color);
 }
 
 /* Thanks wopox1337 for stock (https://dev-cs.ru/threads/222/#post-8937) */
@@ -618,13 +597,27 @@ stock UTIL_VisualizeVector(Float:vStartX, Float:vStartY, Float:vStartZ, Float:vE
     write_short(g_BeamSprite);
     write_byte(1);           // Стартовый кадр
     write_byte(1);           // Скорость анимации 
-    write_byte(8);           // Время существования/life in 0.1's 
-    write_byte(8);           // Толщина луча
+    write_byte(2);           // Время существования/life in 0.1's 
+    write_byte(6);           // Толщина луча
     write_byte(0);           // Искажение 
     write_byte(iColor[0]);   // Цвет красный 
     write_byte(iColor[1]);   // Цвет зеленый
     write_byte(iColor[2]);   // Цвет синий
-    write_byte(300);         // Яркость 
+    write_byte(200);         // Яркость 
     write_byte(0);           // Скорость 
     message_end();
+}
+
+stock UTIL_Vec_Add(const Float:Vec1[], const Float:Vec2[], Float:Out[])
+{
+    Out[0] = Vec1[0] + Vec2[0];
+    Out[1] = Vec1[1] + Vec2[1];
+    Out[2] = Vec1[2] + Vec2[2];
+}
+
+stock UTIL_Vec_Set(Float:Vec[], Float:x, Float:y, Float:z)
+{
+    Vec[0] = x;
+    Vec[1] = y;
+    Vec[2] = z;
 }
