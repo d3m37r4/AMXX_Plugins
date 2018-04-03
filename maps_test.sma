@@ -7,6 +7,8 @@ const MAX_NOMINATE_MAP   = 4;                 // Максимальное кол
 const VOTE_TIME          = 10;                // Время голосования (в секундах)
 const ACCESS_FLAG        = ADMIN_BAN;         // Флаг для доступа в меню смены карт
 
+const TASK_INDEX = 19024325;
+
 enum { 
     STATE_NONE,
     STATE_SELECT,
@@ -410,7 +412,7 @@ VoteMap_Start()
 
 #if defined SHOW_MENU_WITH_PERCENTS
     g_iTimeOst = VOTE_TIME;
-    set_task(1.0, "ShowCacheMenu", 100, .flags = "a", .repeat = VOTE_TIME);
+    set_task(1.0, "ShowCacheMenu", TASK_INDEX, .flags = "a", .repeat = VOTE_TIME);
 #else
     set_task(float(VOTE_TIME), "task_CheckVotes");
 #endif
@@ -435,7 +437,7 @@ public VoteMap_Handler(iIndex, iKey)
             {
                 client_print_color(0, iIndex, "[Server] ^3%s^1 проголосовал за смену карты.", szName);
             } else {
-            	new szMapName[MAX_NAME_LENGTH];
+                new szMapName[MAX_NAME_LENGTH];
 
                 ArrayGetString(g_aMaps, g_MapsMenu[NOMINATED_MAPS][iKey], szMapName, charsmax(szMapName));
 
@@ -455,7 +457,7 @@ public VoteMap_Handler(iIndex, iKey)
 #if defined SHOW_MENU_WITH_PERCENTS
 public ShowCacheMenu(id)
 {
-    if(id == 100)
+    if(id == TASK_INDEX)
     {
         g_iTimeOst--;
 
@@ -471,20 +473,20 @@ public ShowCacheMenu(id)
             {
                 case 1:
                 {   
-                	new iChangeNum = (g_iVotes ? floatround(g_MapsMenu[VOTES_MAPS][0] * 100.0 / g_iVotes) : 0);
-                	new iNoChangeNum = (g_iVotes ? floatround(g_MapsMenu[NO_VOTE_NUM] * 100.0 / g_iVotes) : 0);
+                    new iChangeNum = (g_iVotes ? floatround(g_MapsMenu[VOTES_MAPS][0] * 100.0 / g_iVotes) : 0);
+                    new iNoChangeNum = (g_iVotes ? floatround(g_MapsMenu[NO_VOTE_NUM] * 100.0 / g_iVotes) : 0);
 
-                	iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "Сменить карту на \r%s \w?^n^n", g_MapsMenu[NEW_MAP]);
+                    iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "Сменить карту на \r%s \w?^n^n", g_MapsMenu[NEW_MAP]);
                     iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "\r1. \wДа \d[\y%d%%\d]^n", iChangeNum);
                     iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "\r0. \wНет \d[\y%d%%\d]^n", iNoChangeNum);
                 }
                 default:
                 {
-                	iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "Выберите карту:^n^n");
+                    iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "Выберите карту:^n^n");
 
                     for(new i, iChangeNum, szMapName[32]; i < g_MapsMenu[NOMINATED_MAPS_NUM]; ++i)
                     {
-                    	iChangeNum = (g_iVotes ? floatround(g_MapsMenu[VOTES_MAPS][i] * 100.0 / g_iVotes) : 0);
+                        iChangeNum = (g_iVotes ? floatround(g_MapsMenu[VOTES_MAPS][i] * 100.0 / g_iVotes) : 0);
 
                         ArrayGetString(g_aMaps, g_MapsMenu[NOMINATED_MAPS][i], szMapName, charsmax(szMapName));
 
@@ -527,24 +529,24 @@ public task_CheckVotes()
 
     if(!g_MapsMenu[VOTES_MAPS][x] && !g_MapsMenu[NO_VOTE_NUM])
     {
-        set_clear_data();
-        set_screen_fade(.fade = 0);
-
         client_print_color(0, 0, "[Server] Голосование не состоялось, поскольку никто из игроков не проголосовал!");
         log_amx("Голосование не состоялось, поскольку никто из игроков не проголосовал!");
-    } else if(g_MapsMenu[VOTES_MAPS][x] <= g_MapsMenu[NO_VOTE_NUM]) {
-        set_clear_data();
-        set_screen_fade(.fade = 0);
 
+        set_screen_fade(.fade = 0);
+        set_clear_data();
+    } else if(g_MapsMenu[VOTES_MAPS][x] <= g_MapsMenu[NO_VOTE_NUM]) {
         client_print_color(0, 0, "[Server] Смена карты отменена! Большинство игроков проголосовало против смены карты!");
         log_amx("Смена карты отменена! Большинство игроков проголосовало против смены карты!");
+
+        set_screen_fade(.fade = 0);
+        set_clear_data();
     } else {
         ArrayGetString(g_aMaps, g_MapsMenu[NOMINATED_MAPS][x], g_MapsMenu[NEW_MAP], charsmax(g_MapsMenu[NEW_MAP]));
 
-        set_intermission_msg();
-
         client_print_color(0, 0, "[Server] Голосование завершено! Cледующая карта ^4%s^1.", g_MapsMenu[NEW_MAP]);
         log_amx("Голосование завершено! Cледующая карта ^4%s^1.", g_MapsMenu[NEW_MAP]);
+
+        set_intermission_msg();
     }
 
     set_frozen_users(.bFrozen = false);
@@ -650,7 +652,7 @@ stock set_frozen_users(bool:bFrozen)
 {
     if(bFrozen)
     {
-        set_pcvar_num(g_pFreezeTime, VOTE_TIME + 5);
+        set_pcvar_num(g_pFreezeTime, g_iOldFreezeTime + VOTE_TIME + 5);
     } else {
         set_pcvar_num(g_pFreezeTime, g_iOldFreezeTime);
     }
