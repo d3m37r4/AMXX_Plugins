@@ -1,3 +1,5 @@
+//TODO: если будет добавлена поддержка AMXMODX 1.8.2, добавить разрушение дин.массива в plugin_end()
+
 #include <amxmodx>
 
 #define CMD_BLOCK_ON_START_VOTE              // Блокировать различные меню во время голосования (смена команды, радио команды, покупка оружия и т.д.)
@@ -7,7 +9,7 @@ const MAX_NOMINATE_MAP   = 4;                 // Максимальное кол
 const VOTE_TIME          = 10;                // Время голосования (в секундах)
 const ACCESS_FLAG        = ADMIN_BAN;         // Флаг для доступа в меню смены карт
 
-const TASK_INDEX = 19024325;
+const TASK_INDEX          = 512452;
 
 enum { 
     STATE_NONE,
@@ -34,22 +36,15 @@ enum _:DATA {
     NEW_MAP[32]
 };
 
-new g_MapsMenu[DATA];
-new Array:g_aMaps;              
-new g_iMaps, g_iState;
+enum _:COLOR {R, G, B};
+enum _:POS {Float:X, Float:Y};
 
-new g_iColors[3] = {50, 255, 50};             // R G B цвет для HUD отсчета
-new Float:g_fPos[2] = {-1.0, 0.6};            // X и Y координаты в HUD отсчета
-
-new const g_Sounds[][] = {
-    "",
-    "fvox/one",
-    "fvox/two",
-    "fvox/three"
-};
+new const g_FileName[] = "admin_maps.ini";                    // Файл, в котором находятся карты для меню
+new const g_Colors[COLOR] = {50, 255, 50};                     // R G B цвет для HUD отсчета
+new const Float:g_HudPos[POS] = {-1.0, 0.6};                 // X и Y координаты в HUD отсчета
 
 #if defined CMD_BLOCK_ON_START_VOTE 
-    new const g_Commands[][] = {
+    new const g_BlockCommands[][] = {
         "buy",
         "radio1",
         "radio2",
@@ -59,8 +54,16 @@ new const g_Sounds[][] = {
         "joinclass"
     };
 #endif
+new const g_Sounds[][] = {
+    "fvox/one",
+    "fvox/two",
+    "fvox/three"
+};
 
-new const FILE_NAME[] = "admin_maps.ini";
+new g_MapsMenu[DATA];
+new Array:g_aMaps;              
+new g_iMaps, g_iState;
+new g_CurrMapName[32];
 
 new g_pFreezeTime, g_iOldFreezeTime;
 
@@ -75,9 +78,11 @@ public plugin_cfg()
 {
     new szFileDir[128];
     g_aMaps = ArrayCreate(32);
-    
+
+    get_mapname(g_CurrMapName, charsmax(g_CurrMapName));
+
     get_localinfo("amxx_configsdir", szFileDir, charsmax(szFileDir));
-    formatex(szFileDir, charsmax(szFileDir), "%s/%s", szFileDir, FILE_NAME);
+    formatex(szFileDir, charsmax(szFileDir), "%s/%s", szFileDir, g_FileName);
 
     switch(file_exists(szFileDir))
     {
@@ -102,6 +107,9 @@ public plugin_cfg()
                     if(!parse(szBuffer, szMapName, charsmax(szMapName)) && !is_map_valid(szMapName))
                         continue;
 
+                    if(strcmp(g_CurrMapName, szMapName, true) == 0)
+                        continue;
+
                     ArrayPushString(g_aMaps, szMapName);
                 }
 
@@ -114,9 +122,6 @@ public plugin_cfg()
             }
         }
     }
-
-    g_pFreezeTime = get_cvar_pointer("mp_freezetime");
-    bind_pcvar_num(g_pFreezeTime, g_iOldFreezeTime);
 }
 
 public plugin_init()
@@ -125,8 +130,8 @@ public plugin_init()
     register_clcmd("amx_votemapmenu", "cmd_VoteMenu", ACCESS_FLAG);
 
 #if defined CMD_BLOCK_ON_START_VOTE 
-    for(new i; i < sizeof g_Commands; i++)
-        register_clcmd(g_Commands[i], "clcmd_Block");
+    for(new i; i < sizeof g_BlockCommands; i++)
+        register_clcmd(g_BlockCommands[i], "clcmd_Block");
 #endif
 
     g_MapsMenu[MENU_INDEX] = register_menuid("Maps Menu");
@@ -135,6 +140,8 @@ public plugin_init()
     register_menucmd(register_menuid("Vote Map"), (-1^(-1<<(MAX_NOMINATE_MAP+1)))|(1<<9), "VoteMap_Handler");
 
     register_event("HLTV", "event_RestartRound", "a", "1=0", "2=0");
+
+    g_pFreezeTime = get_cvar_pointer("mp_freezetime");
 }
 
 public event_RestartRound()
@@ -448,13 +455,13 @@ public VoteMap_Handler(iIndex, iKey)
         }
     }
 
+#if defined SHOW_MENU_WITH_PERCENTS
     g_bIsVoted[iIndex] = true;
     g_iVotes++;
 
     ShowCacheMenu(iIndex);
 }
 
-#if defined SHOW_MENU_WITH_PERCENTS
 public ShowCacheMenu(id)
 {
     if(id == TASK_INDEX)
@@ -515,8 +522,8 @@ public ShowCacheMenu(id)
     } else {
         show_menu(id, KEY, g_VoteResMenu, -1, "ShowPercentMenu");
     }
+#endif    
 }
-#endif
 
 public task_CheckVotes()
 {
@@ -532,13 +539,11 @@ public task_CheckVotes()
         client_print_color(0, 0, "[Server] Голосование не состоялось, поскольку никто из игроков не проголосовал!");
         log_amx("Голосование не состоялось, поскольку никто из игроков не проголосовал!");
 
-        set_screen_fade(.fade = 0);
         set_clear_data();
     } else if(g_MapsMenu[VOTES_MAPS][x] <= g_MapsMenu[NO_VOTE_NUM]) {
         client_print_color(0, 0, "[Server] Смена карты отменена! Большинство игроков проголосовало против смены карты!");
         log_amx("Смена карты отменена! Большинство игроков проголосовало против смены карты!");
 
-        set_screen_fade(.fade = 0);
         set_clear_data();
     } else {
         ArrayGetString(g_aMaps, g_MapsMenu[NOMINATED_MAPS][x], g_MapsMenu[NEW_MAP], charsmax(g_MapsMenu[NEW_MAP]));
@@ -549,6 +554,7 @@ public task_CheckVotes()
         set_intermission_msg();
     }
 
+    set_screen_fade(.fade = 0);
     set_frozen_users(.bFrozen = false);
 }
 
@@ -557,19 +563,19 @@ public task_ChangeLevel()
 
 public task_ShowTimer()
 {
-    static timer = 3;
+    static iTimer = 3;
 
-    if(timer == 0)
+    if(iTimer == 0)
     {
         g_iState = STATE_VOTING;
-        timer = 3;
+        iTimer = 3;
 
         VoteMap_Start();
     } else {
-        set_hudmessage(g_iColors[0], g_iColors[1], g_iColors[2], g_fPos[0], g_fPos[1], 0, 0.0, 1.0, 0.0, 0.0, 4);
-        show_hudmessage(0, "До голосования осталось %d сек!", timer);
+        set_hudmessage(g_Colors[R], g_Colors[G], g_Colors[B], g_HudPos[X], g_HudPos[Y], 0, 0.0, 1.0, 0.0, 0.0, 4);
+        show_hudmessage(0, "До голосования осталось %d сек!", iTimer--);
 
-        client_cmd(0, "spk %s", g_Sounds[timer--]);        
+        client_cmd(0, "spk %s", g_Sounds[iTimer]);        
     }
 }
 
@@ -652,8 +658,10 @@ stock set_frozen_users(bool:bFrozen)
 {
     if(bFrozen)
     {
+        g_iOldFreezeTime = get_pcvar_num(g_pFreezeTime);
         set_pcvar_num(g_pFreezeTime, g_iOldFreezeTime + VOTE_TIME + 5);
     } else {
-        set_pcvar_num(g_pFreezeTime, g_iOldFreezeTime);
+        if(get_pcvar_num(g_pFreezeTime) != g_iOldFreezeTime)
+            set_pcvar_num(g_pFreezeTime, g_iOldFreezeTime);
     }
 }
