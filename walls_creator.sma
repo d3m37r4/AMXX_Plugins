@@ -345,7 +345,7 @@ public WallsCreator_KillMenuHandler(iIndex, iKey)
 
             client_print_color(iIndex, 0, "[Server] Заграждение успешно удалено.");        
         }
-        case 1:
+        case 9:
         {
             WallsCreator_BuildMenu(iIndex);
             client_print_color(iIndex, 0, "[Server] Чтобы изменения вступили в силу, не забудьте сохранить настройки!");
