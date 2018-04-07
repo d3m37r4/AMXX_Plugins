@@ -1,0 +1,65 @@
+[ru]
+WC_NO_ACCESS = * Недостаточно прав для использования данной команды!
+WC_MAIN_MENU = Главное меню
+WC_TOTAL_BARRIERS = Всего заграждений на карте
+WC_BARRIER_SELECTED = Выбрано заграждение
+WC_NEXT_BARRIER = Следующее заграждение
+WC_PREVIOUS_BARRIER = Предыдущее заграждение
+WC_CREATE_BARRIER = Создать новое заграждение
+WC_EDIT_BARRIER = Редактировать заграждение
+WC_DELETE_BARRIER = Удалить заграждение
+WC_DELETING_BARRIER = Удаление заграждения
+WC_CONFIRM_DELETING = Удалить выбранное заграждение
+WC_CANCEL_DELETE = Отмена, возврат в главное меню
+WC_EDITING = Редактирование заграждения
+WC_EDIT_AXIS = Изменить ось редактирования
+WC_EDIT_STEP = Изменить шаг редактирования
+WC_ZOOM = Увеличить
+WC_REDUCE = Уменьшить
+WC_LEFT = слева
+WC_FROM_ABOVE = сверху
+WC_FRONT = спереди
+WC_RIGHT = справа
+WC_FROM_BELOW = снизу
+WC_POSTERIORLY = сзади
+WC_RETURN_MAIN_MENU = Вернуться в главное меню
+WC_SAVE_SETTINGS = Сохранить настройки
+WC_EXIT_MENU = Выход
+
+WC_NEED_CHANGEMAP = Для корректной работы заграждений необходима смена карты!
+WC_SUCCESSFULLY_REMOVED = Заграждение успешно удалено.
+WC_NEED_SAVE_SETTINGS = Чтобы изменения вступили в силу, не забудьте сохранить настройки!
+WC_PRESERVATION_OF_BARRIERS = Заграждения для текущей карты сохранены в файле
+
+[en]
+WC_NO_ACCESS = * Insufficient privileges to use this command!
+WC_MAIN_MENU = Main Menu
+WC_TOTAL_BARRIERS = Total barriers on map
+WC_BARRIER_SELECTED = Selected barrier
+WC_NEXT_BARRIER = Next barrier
+WC_PREVIOUS_BARRIER = Previous barrier
+WC_CREATE_BARRIER = Create new barrier
+WC_EDIT_BARRIER = Edit barrier
+WC_DELETE_BARRIER = Delete barrier
+WC_DELETING_BARRIER = Deleting barrier
+WC_CONFIRM_DELETING = Confirm deleting
+WC_CANCEL_DELETE = Cancel deleting and return to main menu
+WC_EDITING = Editing barrier
+WC_EDIT_AXIS = Edit editing axis
+WC_EDIT_STEP = Edit editing step
+WC_ZOOM = Zoom in
+WC_REDUCE = Reduce
+WC_LEFT = left
+WC_FROM_ABOVE = from above
+WC_FRONT = front
+WC_RIGHT = right
+WC_FROM_BELOW = from below
+WC_POSTERIORLY = posteriorly
+WC_RETURN_MAIN_MENU = Return to main menu
+WC_SAVE_SETTINGS = Save settings
+WC_EXIT_MENU = Exit
+
+WC_NEED_CHANGEMAP = For correct operation of the barriers, need to change map!
+WC_SUCCESSFULLY_REMOVED = Barrier was successfully removed.
+WC_NEED_SAVE_SETTINGS = For changes to take effect, do not forget to save settings!
+WC_PRESERVATION_OF_BARRIERS = Barriers for current map are stored in a file
