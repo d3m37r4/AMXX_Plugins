@@ -1,3 +1,7 @@
+/*
+	Основано на плагине Maps Menu by neygomon
+*/
+
 //TODO: если будет добавлена поддержка AMXMODX 1.8.2, добавить разрушение дин.массива в plugin_end()
 
 #include <amxmodx>
@@ -125,7 +129,9 @@ public plugin_cfg()
 }
 
 public plugin_init()
-{                                       
+{
+	register_plugin("Maps Admin Menu", "1.0", "d3m37r4");
+
     register_clcmd("amx_mapmenu", "cmd_MapMenu", ACCESS_FLAG);
     register_clcmd("amx_votemapmenu", "cmd_VoteMenu", ACCESS_FLAG);
 
