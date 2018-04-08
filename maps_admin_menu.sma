@@ -615,7 +615,7 @@ public set_screen_fade(fade)
         }
     }
     
-    message_begin(MSG_ALL/*MSG_BROADCAST*/, msgScreenFade);
+    message_begin(/*MSG_ALL*/MSG_BROADCAST, msgScreenFade);
     write_short(time);
     write_short(hold);
     write_short(flags);
