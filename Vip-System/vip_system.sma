@@ -1,7 +1,8 @@
-/*
-      Thanks: neygomon (for some code snippets), Vaqtincha (for advices on code).
-*/
 
+    get_member(iIndex, m_signals, iSignals);
+
+    return bool:(SignalState:iSignals[US_State] & SIGNAL_BUY);   
+}
 #include <amxmodx>
 #include <reapi>
 #include <nvault_array>
@@ -10,8 +11,8 @@ new const PLUGIN_NAME[]    = "Vip System";
 new const PLUGIN_VERSION[] = "3.2.4";
 new const PLUGIN_AUTHOR[]  = "d3m37r4";
 
-#define ADMIN_LOADER                                            // Вывод кол-ва дней до окончания действия привилегии (Admin Loader от neygomon или Admin Load от F@nt0M) 
-//#define GIVE_DEFUSEKIT_AND_ARMOR                              // Выдавать бронежилет и DefuseKit в начале раунда (DefuseKit выдается только CT)
+#define ADMIN_LOADER                                            // Совместимость с Admin Loader от neygomon
+//#define GIVE_DEFUSEKIT_AND_ARMOR                              // Выдавать бронежилет и DefuseKit (если игрок КТ) в начале раунда
 #define GIVE_GRENADES                                           // Выдавать гранаты в начале раунда
 #define RESTRICT_AWP_ON_2x2_MAPS                                // Запрещать покупку awp на картах 2x2
 
@@ -213,7 +214,7 @@ Show_Menu(iIndex, bool:iCheckBuyZone = true)
     if(!is_allow_use(iIndex, iCheckBuyZone))     
         return PLUGIN_HANDLED;
 
-    new szMenu[512], iLen, iLineNum;
+    new szMenu[512], iLen;
 
     iLen = formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\w[\rVipMenu\w] Меню VIP-Игрока^n");
 
@@ -229,40 +230,28 @@ Show_Menu(iIndex, bool:iCheckBuyZone = true)
 
             if(iTimeInDay > 0)
             {
-                iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\wПривелегия действует: еще \r%d \wдн.^n", iTimeInDay);
+                iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "Привелегия действует: еще \r%d \wдн.^n", iTimeInDay);
             } else {
-                iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\wПривелегия действует: \rпоследний день^n");
+                iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "Привелегия действует: \rпоследний день^n");
             }
         }
     } else if(iExp == 0) {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\wПривелегия действует: \rбессрочно^n");
+        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "Привелегия действует: \rбессрочно^n");
     }
 #endif
 
-    if(VIP_ROUND > g_iRoundCount)
-    {    
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\R\dСтоимость^n");
-    } else {
-        iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\R\wСтоимость^n");            
-    }
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\R\%sЦена $^n", (VIP_ROUND > g_iRoundCount) ? "d" : "y");
 
     for(new i; i < sizeof g_ItemClassNames; i++)
-    {
-        if(VIP_ROUND > g_iRoundCount)
-        {        
-            iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\d%d. Купить %s\R$%d^n", ++iLineNum, g_WeaponName[i], g_Items[i][W_COST]);
-        } else {
-            iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r%d. \wКупить \r%s\R\r$\y%d^n", ++iLineNum, g_WeaponName[i], g_Items[i][W_COST]);    
-        }
-    }
+    	iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, (VIP_ROUND > g_iRoundCount) ? "\d%d. Купить %s\R%d^n" : "\r%d. \wКупить \r%s\R\y%d^n", i + 1, g_WeaponName[i], g_Items[i][W_COST]);
 
     iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "^n");
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r7. \wПистолет \w[%s\w]^n", g_PistolName[g_aPlayerData[iIndex][Pistol]]);
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r8. \wДамагер \w[%s\w]^n", g_State[g_aPlayerData[iIndex][Damager]]);
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r9. \wАвтооткрытие меню \w[%s\w]^n^n", g_State[g_aPlayerData[iIndex][Automenu]]); 
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r7. \wПистолет [%s\w]^n", g_PistolName[g_aPlayerData[iIndex][Pistol]]);
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r8. \wДамагер [%s\w]^n", g_State[g_aPlayerData[iIndex][Damager]]);
+    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r9. \wАвтооткрытие меню [%s\w]^n^n", g_State[g_aPlayerData[iIndex][Automenu]]); 
 
-    iLen += formatex(szMenu[iLen], charsmax(szMenu) - iLen, "\r0. \wВыход");
-         
+    formatex(szMenu[iLen], charsmax(szMenu), "\r0. \wВыход");
+
     show_menu(iIndex, KEYS_MENU, szMenu, -1, "Menu");
 
     return PLUGIN_HANDLED;             
@@ -399,7 +388,7 @@ bool:is_allow_use(iIndex, bool:iCheckBuyZone)
     {
         client_print_color(iIndex, 0, "[Server] Данная команда доступна только для живых игроков!");
         return false;
-    } 
+    }
 
     if(!is_user_vip(iIndex))
     {
