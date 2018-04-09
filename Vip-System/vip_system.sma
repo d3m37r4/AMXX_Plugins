@@ -1,8 +1,3 @@
-
-    get_member(iIndex, m_signals, iSignals);
-
-    return bool:(SignalState:iSignals[US_State] & SIGNAL_BUY);   
-}
 #include <amxmodx>
 #include <reapi>
 #include <nvault_array>
