@@ -2,8 +2,6 @@
 	Основано на плагине Maps Menu by neygomon
 */
 
-//TODO: если будет добавлена поддержка AMXMODX 1.8.2, добавить разрушение дин.массива в plugin_end()
-
 #include <amxmodx>
 
 #define CMD_BLOCK_ON_START_VOTE              // Блокировать различные меню во время голосования (смена команды, радио команды, покупка оружия и т.д.)
@@ -130,7 +128,7 @@ public plugin_cfg()
 
 public plugin_init()
 {
-	register_plugin("Maps Admin Menu", "1.0", "d3m37r4");
+	register_plugin("Maps Admin Menu", "1.1", "d3m37r4");
 
     register_clcmd("amx_mapmenu", "cmd_MapMenu", ACCESS_FLAG);
     register_clcmd("amx_votemapmenu", "cmd_VoteMenu", ACCESS_FLAG);
@@ -149,6 +147,9 @@ public plugin_init()
 
     g_pFreezeTime = get_cvar_pointer("mp_freezetime");
 }
+
+public plugin_end()
+	ArrayDestroy(g_aMaps);
 
 public event_RestartRound()
 {
