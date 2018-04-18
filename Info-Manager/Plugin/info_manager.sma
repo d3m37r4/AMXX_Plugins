@@ -196,6 +196,9 @@ public plugin_init()
     g_iMaxPlayers = get_maxplayers();
 }
 
+public plugin_end()   
+    ArrayDestroy(g_aMessages);
+
 public client_putinserver(id)
 {
     if(!g_PluginSettings[MSG_OFF] && !is_valid_player(id))
@@ -259,7 +262,7 @@ public cmd_SayHandler(id)
 
             get_user_info(id, "_msg", szUserInfo, charsmax(szUserInfo));
 
-            if(strcmp(szMessage[1], "msg_off", 1) == 0)
+            if(strcmp(szMessage[1], "msg_off", true) == 0)
             {
                 if(szUserInfo[0] && equal(szUserInfo, "off"))
                 {
@@ -272,7 +275,7 @@ public cmd_SayHandler(id)
                 }
             }
 
-            if(strcmp(szMessage[1], "msg_on", 1) == 0)
+            if(strcmp(szMessage[1], "msg_on", true) == 0)
             {
                 if(szUserInfo[0] && equal(szUserInfo, "on"))
                 {
@@ -288,43 +291,43 @@ public cmd_SayHandler(id)
 
         if(g_OtherSettings[LINK_MOTD_HELP])
         {
-            if(strcmp(szMessage[1], "help", 1) == 0)
+            if(strcmp(szMessage[1], "help", true) == 0)
                 return show_motd(id, g_OtherSettings[LINK_MOTD_HELP], "Команды чата");
         }
 
         if(g_OtherSettings[LINK_MOTD_RULES])
         {
-            if(strcmp(szMessage[1], "rules", 1) == 0)
+            if(strcmp(szMessage[1], "rules", true) == 0)
                 return show_motd(id, g_OtherSettings[LINK_MOTD_RULES], "Пpaвилa cepвepa");
         }
 
         if(g_OtherSettings[LINK_MOTD_ADMIN])
         {
-            if(strcmp(szMessage[1], "admin", 1) == 0)
+            if(strcmp(szMessage[1], "admin", true) == 0)
                 return show_motd(id, g_OtherSettings[LINK_MOTD_ADMIN], "Пpaвa Aдминиcтpaтopa");
         }
 
         if(g_OtherSettings[LINK_MOTD_VIP])
         {
-            if(strcmp(szMessage[1], "vip", 1) == 0)
+            if(strcmp(szMessage[1], "vip", true) == 0)
                 return show_motd(id, g_OtherSettings[LINK_MOTD_VIP], "Cтaтyc Vip-игpoкa");
         }
 
         if(g_OtherSettings[IP_LINK])
         {
-            if(strcmp(szMessage[1], "ip", 1) == 0)
+            if(strcmp(szMessage[1], "ip", true) == 0)
                 return client_print_color(id, -2, "%s Ip-Адрес сервера: ^3%s", g_PluginSettings[MSG_PREFIX], g_OtherSettings[IP_LINK]);
            }
 
         if(g_OtherSettings[SITE_LINK])
         {
-            if(strcmp(szMessage[1], "site", 1) == 0)
+            if(strcmp(szMessage[1], "site", true) == 0)
                 return client_print_color(id, -2, "%s Наш сайт: ^3%s", g_PluginSettings[MSG_PREFIX], g_OtherSettings[SITE_LINK]);
         }
 
         if(g_OtherSettings[VK_LINK])
         {
-            if(strcmp(szMessage[1], "vk", 1) == 0)
+            if(strcmp(szMessage[1], "vk", true) == 0)
                 return client_print_color(id, -2, "%s Наша группа ВКонтакте: ^3%s", g_PluginSettings[MSG_PREFIX], g_OtherSettings[VK_LINK]);
         }
     }
