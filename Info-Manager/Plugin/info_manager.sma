@@ -185,7 +185,7 @@ public plugin_precache()
 
 public plugin_init()
 {
-    register_plugin("Info Manager", "2.0", "d3m37r4");
+    register_plugin("Info Manager", "2.1", "d3m37r4");
 
     register_clcmd("say", "cmd_SayHandler");
     register_clcmd("say_team", "cmd_SayHandler");
