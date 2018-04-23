@@ -1,17 +1,21 @@
 /*
-	Основано на плагине Maps Menu by neygomon
+    Powered by Maps Menu
+    Original plugin - Maps Menu v 1.4.1 (my-amxx.ru/threads/1-4-1-maps-menu.63)
+    Author - neygomon (my-amxx.ru/members/neygomon.1)
 */
 
 #include <amxmodx>
 
-#define CMD_BLOCK_ON_START_VOTE              // Блокировать различные меню во время голосования (смена команды, радио команды, покупка оружия и т.д.)
-#define SHOW_MENU_WITH_PERCENTS              // Показывать результаты с процентами голосов после выбора карты при голосовании
+#define CMD_BLOCK_ON_START_VOTE                        // Блокировать различные меню во время голосования (смена команды, радио команды, покупка оружия и т.д.)
+#define SHOW_MENU_WITH_PERCENTS                        // Показывать результаты голосования с процентами голосов
 
-const MAX_NOMINATE_MAP   = 4;                 // Максимальное количество карт в голосовании
-const VOTE_TIME          = 10;                // Время голосования (в секундах)
-const ACCESS_FLAG        = ADMIN_BAN;         // Флаг для доступа в меню смены карт
+const ACCESS_FLAG           = ADMIN_BAN;               // Флаг для доступа в меню смены карт
 
-const TASK_INDEX          = 512452;
+const MAX_NOMINATE_MAP      = 4;                       // Максимальное количество карт в голосовании
+const VOTE_TIME             = 10;                      // Время голосования (в секундах)
+const TIME_UNTIL_CHANGE	    = 4;                       // Время до смены карты после голосования (через сколько пройдет intermission и последует смена карты)
+
+const TASK_INDEX	    = 512452;
 
 enum { 
     STATE_NONE,
@@ -41,9 +45,9 @@ enum _:DATA {
 enum _:COLOR {R, G, B};
 enum _:POS {Float:X, Float:Y};
 
-new const g_FileName[] = "admin_maps.ini";                    // Файл, в котором находятся карты для меню
-new const g_Colors[COLOR] = {50, 255, 50};                     // R G B цвет для HUD отсчета
-new const Float:g_HudPos[POS] = {-1.0, 0.6};                 // X и Y координаты в HUD отсчета
+new const g_FileName[]            = "admin_maps.ini";                    // Файл, в котором находятся карты для меню
+new const g_Colors[COLOR]        = {50, 255, 50};                    // R G B цвет для HUD отсчета
+new const Float:g_HudPos[POS]    = {-1.0, 0.6};                        // X и Y координаты в HUD отсчета
 
 #if defined CMD_BLOCK_ON_START_VOTE 
     new const g_BlockCommands[][] = {
@@ -57,15 +61,15 @@ new const Float:g_HudPos[POS] = {-1.0, 0.6};                 // X и Y коор�
     };
 #endif
 new const g_Sounds[][] = {
-    "fvox/one",
-    "fvox/two",
-    "fvox/three"
+    "/sound/fvox/one.wav",
+    "/sound/fvox/two.wav",
+    "/sound/fvox/three.wav"
 };
 
 new g_MapsMenu[DATA];
 new Array:g_aMaps;              
 new g_iMaps, g_iState;
-new g_CurrMapName[32];
+new g_CurrentMap[32];
 
 new g_pFreezeTime, g_iOldFreezeTime;
 
@@ -76,59 +80,63 @@ new g_pFreezeTime, g_iOldFreezeTime;
     new g_VoteResMenu[512];
 #endif
 
+new bool:g_StartVote;
+
 public plugin_cfg()
 {
     new szFileDir[128];
+    
     g_aMaps = ArrayCreate(32);
+    g_pFreezeTime = get_cvar_pointer("mp_freezetime");
 
-    get_mapname(g_CurrMapName, charsmax(g_CurrMapName));
-
+    get_mapname(g_CurrentMap, charsmax(g_CurrentMap));
     get_localinfo("amxx_configsdir", szFileDir, charsmax(szFileDir));
+
     formatex(szFileDir, charsmax(szFileDir), "%s/%s", szFileDir, g_FileName);
 
-    switch(file_exists(szFileDir))
+    if(file_exists(szFileDir))
     {
-        case 0: set_fail_state("Map file not found!");
-        case 1:
-        {
-            new iFile = fopen(szFileDir, "rt");
+        new iFile = fopen(szFileDir, "rt");
     
-            if(iFile)
+        if(iFile)
+        {
+            new szBuffer[32], szMapName[32];
+
+            while(!feof(iFile))
             {
-                new szBuffer[32], szMapName[32];
+                fgets(iFile, szBuffer, charsmax(szBuffer));
+                remove_quotes(szBuffer);
+                trim(szBuffer);
 
-                while(!feof(iFile))
-                {
-                    fgets(iFile, szBuffer, charsmax(szBuffer));
-                    remove_quotes(szBuffer);
-                    trim(szBuffer);
+                if(!(szBuffer[0]) || szBuffer[0] == ';' || szBuffer[0] == '#')
+                    continue;
 
-                    if(!(szBuffer[0]) || szBuffer[0] == ';' || szBuffer[0] == '#')
-                        continue;
+                if(!parse(szBuffer, szMapName, charsmax(szMapName)) && !is_map_valid(szMapName))
+                    continue;
 
-                    if(!parse(szBuffer, szMapName, charsmax(szMapName)) && !is_map_valid(szMapName))
-                        continue;
+                if(strcmp(g_CurrentMap, szMapName, true) == 0)
+                    continue;
 
-                    if(strcmp(g_CurrMapName, szMapName, true) == 0)
-                        continue;
-
-                    ArrayPushString(g_aMaps, szMapName);
-                }
-
-                fclose(iFile);
-      
-                g_iMaps = ArraySize(g_aMaps);
-
-                if(!g_iMaps)
-                    set_fail_state("Maps not found!");
+                ArrayPushString(g_aMaps, szMapName);
             }
+
+            fclose(iFile);
+      
+            g_iMaps = ArraySize(g_aMaps);
+
+            if(!g_iMaps)
+                set_fail_state("Maps not found!");
+        } else {
+            set_fail_state("Map file not found!");
         }
     }
 }
 
 public plugin_init()
 {
-	register_plugin("Maps Admin Menu", "1.1", "d3m37r4");
+    register_plugin("Maps Admin Menu", "1.2", "d3m37r4");
+
+    register_event("HLTV", "event_RestartRound", "a", "1=0", "2=0");
 
     register_clcmd("amx_mapmenu", "cmd_MapMenu", ACCESS_FLAG);
     register_clcmd("amx_votemapmenu", "cmd_VoteMenu", ACCESS_FLAG);
@@ -142,14 +150,26 @@ public plugin_init()
 
     register_menucmd(g_MapsMenu[MENU_INDEX], 1023, "MapsMenu_Handler");
     register_menucmd(register_menuid("Vote Map"), (-1^(-1<<(MAX_NOMINATE_MAP+1)))|(1<<9), "VoteMap_Handler");
-
-    register_event("HLTV", "event_RestartRound", "a", "1=0", "2=0");
-
-    g_pFreezeTime = get_cvar_pointer("mp_freezetime");
 }
 
+public plugin_natives()
+{
+    register_library("Maps Admin Menu");
+    register_native("adminvote_is_start", "native_adminvote_is_start", 1);
+    register_native("adminvote_is_create", "native_adminvote_is_create", 1);
+}
+
+public native_adminvote_is_start()
+    return g_StartVote;
+
+public native_adminvote_is_create()
+    return bool:(g_iState == STATE_START_VOTE);
+
 public plugin_end()
-	ArrayDestroy(g_aMaps);
+{
+    if(g_aMaps)
+        ArrayDestroy(g_aMaps);
+}
 
 public event_RestartRound()
 {
@@ -158,8 +178,9 @@ public event_RestartRound()
         case STATE_CHANGELEVEL: set_intermission_msg();
         case STATE_START_VOTE:
         {
+            g_StartVote = true;
             set_screen_fade(.fade = 1);
-            set_frozen_users(.bFrozen = true);
+            set_frozen_users(.frozen = true);
             set_task(1.0, "task_ShowTimer", .flags = "a", .repeat = 4);
         }
     }
@@ -168,7 +189,7 @@ public event_RestartRound()
 #if defined CMD_BLOCK_ON_START_VOTE 
 public clcmd_Block(iIndex)
 {
-    if(g_iState == STATE_VOTING)
+    if(g_StartVote)
         return PLUGIN_HANDLED;
 
     return PLUGIN_CONTINUE; 
@@ -222,7 +243,7 @@ PreOpenMenu(iIndex, iFlags, iMenu)
                 BuildMenu(iIndex, g_MapsMenu[MENU_POS]);
             }
             case STATE_SELECT: client_print_color(iIndex, 0, "[Server] Администратор уже выбирает %s!", iMenu == VOTEMAP ? "карты" : "карту");
-            case STATE_START_VOTE: client_print_color(iIndex, 0, "[Server] Голосование уже создано и будет запущено после окончания текущего раунда.");
+            case STATE_START_VOTE: client_print_color(iIndex, 0, "[Server] Голосование уже создано и будет запущено после окончания текущего раунда!");
             case STATE_VOTING: client_print_color(iIndex, 0, "[Server] В данный момент идет голосование за смену карты!");
             case STATE_CHANGELEVEL: client_print_color(iIndex, 0, "[Server] Следующая карта определена. Смена произойдет после окончания текущего раунда.");
         }
@@ -422,7 +443,7 @@ VoteMap_Start()
     }
 
     show_menu(0, iKeys, szMenu, VOTE_TIME, "Vote Map");
-    client_cmd(0, "spk Gman/Gman_Choose2");
+    send_audio(0, "/sound/Gman/Gman_Choose2.wav");
 
 #if defined SHOW_MENU_WITH_PERCENTS
     g_iTimeOst = VOTE_TIME;
@@ -504,7 +525,7 @@ public ShowCacheMenu(id)
 
                         ArrayGetString(g_aMaps, g_MapsMenu[NOMINATED_MAPS][i], szMapName, charsmax(szMapName));
 
-                        iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "\r%d. \w%s \d[\y%d%%\d]^n", i+1, szMapName, iChangeNum);
+                        iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "\r%d. \w%s \d[\y%d%%\d]^n", i + 1, szMapName, iChangeNum);
                     }
 
                     new iNoChangeNum = (g_iVotes ? floatround(g_MapsMenu[NO_VOTE_NUM] * 100.0 / g_iVotes) : 0);
@@ -513,21 +534,20 @@ public ShowCacheMenu(id)
                 }
             }
 
-            iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "^n\yВы уже проголосовали!^n\wДо конца голосования осталось \r%d \wсек!", g_iTimeOst);
-
-            #define KEY (1 << 10)
+            iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "^n\yВы уже проголосовали!");
+            iLen += formatex(g_VoteResMenu[iLen], charsmax(g_VoteResMenu) - iLen, "^n\wДо конца голосования осталось \r%d \wсекунд%s!", g_iTimeOst, (g_iTimeOst == 1) ? "а" : ((1 < g_iTimeOst < 5) ? "ы" : ""));
 
             for(new id = 1; id <= MaxClients; ++id)
             {
                 if(is_user_connected(id))
                 {
                     if(g_bIsVoted[id])
-                        show_menu(id, KEY, g_VoteResMenu, -1, "ShowPercentMenu");
+                        show_menu(id, 1023, g_VoteResMenu, -1, "ShowPercentMenu");
                 }
             }
         }
     } else {
-        show_menu(id, KEY, g_VoteResMenu, -1, "ShowPercentMenu");
+        show_menu(id, 1023, g_VoteResMenu, -1, "ShowPercentMenu");
     }
 #endif    
 }
@@ -562,7 +582,7 @@ public task_CheckVotes()
     }
 
     set_screen_fade(.fade = 0);
-    set_frozen_users(.bFrozen = false);
+    set_frozen_users(.frozen = false);
 }
 
 public task_ChangeLevel()
@@ -580,9 +600,9 @@ public task_ShowTimer()
         VoteMap_Start();
     } else {
         set_hudmessage(g_Colors[R], g_Colors[G], g_Colors[B], g_HudPos[X], g_HudPos[Y], 0, 0.0, 1.0, 0.0, 0.0, 4);
-        show_hudmessage(0, "До голосования осталось %d сек!", iTimer--);
+        show_hudmessage(0, "До голосования осталось %d секунд%s!", iTimer--, (iTimer == 1) ? "а" : ((1 < iTimer < 5) ? "ы" : ""));
 
-        client_cmd(0, "spk %s", g_Sounds[iTimer]);        
+        send_audio(0, g_Sounds[iTimer]);     
     }
 }
 
@@ -616,7 +636,7 @@ public set_screen_fade(fade)
         }
     }
     
-    message_begin(/*MSG_ALL*/MSG_BROADCAST, msgScreenFade);
+    message_begin(MSG_BROADCAST, msgScreenFade);
     write_short(time);
     write_short(hold);
     write_short(flags);
@@ -644,6 +664,7 @@ stock bool:is_map_selected(const iMapID)
 stock set_clear_data()
 {
     g_iState = STATE_NONE;
+    g_StartVote = false;
 
     g_MapsMenu[NOMINATED_MAPS_NUM] = 0;
     g_MapsMenu[MENU_INSIDER] = 0;
@@ -658,12 +679,12 @@ stock set_intermission_msg()
     message_begin(MSG_ALL, SVC_INTERMISSION);
     message_end();
 
-    set_task(3.0, "task_ChangeLevel", 0);
+    set_task(float(TIME_UNTIL_CHANGE), "task_ChangeLevel", 0);
 }
 
-stock set_frozen_users(bool:bFrozen)
+stock set_frozen_users(bool:frozen)
 {
-    if(bFrozen)
+    if(frozen)
     {
         g_iOldFreezeTime = get_pcvar_num(g_pFreezeTime);
         set_pcvar_num(g_pFreezeTime, g_iOldFreezeTime + VOTE_TIME + 5);
@@ -671,4 +692,17 @@ stock set_frozen_users(bool:bFrozen)
         if(get_pcvar_num(g_pFreezeTime) != g_iOldFreezeTime)
             set_pcvar_num(g_pFreezeTime, g_iOldFreezeTime);
     }
+}
+
+stock send_audio(const pIndex, szSound[])
+{
+    static gmsgSendAudio;
+
+    if(!gmsgSendAudio) gmsgSendAudio = get_user_msgid("SendAudio");
+
+    message_begin(pIndex ? MSG_ONE_UNRELIABLE : MSG_BROADCAST, gmsgSendAudio, _, pIndex);
+    write_byte(pIndex);
+    write_string(szSound);
+    write_short(PITCH_NORM);
+    message_end();
 }
