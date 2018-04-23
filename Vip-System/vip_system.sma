@@ -6,6 +6,7 @@ new const PLUGIN_NAME[]    = "Vip System";
 new const PLUGIN_VERSION[] = "3.2.4";
 new const PLUGIN_AUTHOR[]  = "d3m37r4";
 
+#define ADDITIONAL_CHECK_FOR_ADMINVOTEMAP                       // Дополнителные проверки на наличие голосования за карту, созданного администратором (в этом случае, в начале раунда, меню не будет работать)
 #define ADMIN_LOADER                                            // Совместимость с Admin Loader от neygomon
 //#define GIVE_DEFUSEKIT_AND_ARMOR                              // Выдавать бронежилет и DefuseKit (если игрок КТ) в начале раунда
 #define GIVE_GRENADES                                           // Выдавать гранаты в начале раунда
@@ -57,6 +58,9 @@ new g_hVault = INVALID_HANDLE;
 
 #if defined ADMIN_LOADER 
     native admin_expired(index);
+#endif
+#if defined  ADDITIONAL_CHECK_FOR_ADMINVOTEMAP
+native adminvote_is_start();
 #endif
 
 public plugin_cfg()
@@ -178,7 +182,11 @@ public CBasePlayer_OnSpawnEquip(const iIndex)
 
     if(g_aPlayerData[iIndex][Automenu] == STATE_ENABLED)
     {
+    #if defined  ADDITIONAL_CHECK_FOR_ADMINVOTEMAP
+        if(g_iRoundCount >= VIP_ROUND && !get_member(iIndex, m_bHasPrimary) && !adminvote_is_start())
+    #else
         if(g_iRoundCount >= VIP_ROUND && !get_member(iIndex, m_bHasPrimary))
+    #endif
             Show_Menu(iIndex, false);
     } 
 
@@ -397,6 +405,14 @@ bool:is_allow_use(iIndex, bool:iCheckBuyZone)
         return false;
     }
 
+#if defined  ADDITIONAL_CHECK_FOR_ADMINVOTEMAP
+    if(adminvote_is_start())
+    {
+        client_print_color(iIndex, 0, "[Server] На время голосования данная команда недоступна!");
+        return false;       
+    }
+#endif
+
     if(iCheckBuyZone && !UTIL_user_in_buyzone(iIndex))
     {
         client_print(iIndex, print_center, "Вы должны находиться в зоне закупки!");
@@ -407,7 +423,7 @@ bool:is_allow_use(iIndex, bool:iCheckBuyZone)
     {  
         client_print(iIndex, print_center, "%0.0f секунд истекли.^rПокупка экипировки запрещена!", g_flBuyTime * 60);
         return false;                                         
-    }  
+    }
 
     return true;                                                                                                           
 }
