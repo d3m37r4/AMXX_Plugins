@@ -212,9 +212,9 @@ public CBasePlayer_TakeDamage(const pevVictim, pevInflictor, pevAttacker, Float:
 public Cmd_Menu(iIndex)
     return Show_Menu(iIndex);
 
-Show_Menu(iIndex, bool:iCheckBuyZone = true)
+Show_Menu(iIndex, bool:CheckBuyZone = true)
 {
-    if(!is_allow_use(iIndex, iCheckBuyZone))     
+    if(!is_allow_use(iIndex, CheckBuyZone))     
         return PLUGIN_HANDLED;
 
     new szMenu[512], iLen;
@@ -385,7 +385,7 @@ public plugin_end()
         nvault_close(g_hVault);
 }
 
-bool:is_allow_use(iIndex, bool:iCheckBuyZone)
+bool:is_allow_use(iIndex, bool:CheckBuyZone)
 {
     if(!is_user_alive(iIndex))
     {
@@ -413,13 +413,13 @@ bool:is_allow_use(iIndex, bool:iCheckBuyZone)
     }
 #endif
 
-    if(iCheckBuyZone && !UTIL_user_in_buyzone(iIndex))
+    if(CheckBuyZone && !UTIL_user_in_buyzone(iIndex))
     {
         client_print(iIndex, print_center, "Вы должны находиться в зоне закупки!");
         return false;
     } 
 
-    if(g_flBuyTime == 0.0 || (get_gametime() - Float: get_member_game(m_fRoundStartTime) > (g_flBuyTime * 60)))
+    if(g_flBuyTime == 0.0 || (get_gametime() - Float:get_member_game(m_fRoundStartTime) > (g_flBuyTime * 60)))
     {  
         client_print(iIndex, print_center, "%0.0f секунд истекли.^rПокупка экипировки запрещена!", g_flBuyTime * 60);
         return false;                                         
