@@ -6,6 +6,10 @@
 
 #include <amxmodx>
 
+#if AMXX_VERSION_NUM < 183
+    #include <colorchat> 
+#endif
+
 #define CMD_BLOCK_ON_START_VOTE                        // Блокировать различные меню во время голосования (смена команды, радио команды, покупка оружия и т.д.)
 #define SHOW_MENU_WITH_PERCENTS                        // Показывать результаты голосования с процентами голосов
 
@@ -13,15 +17,15 @@ const ACCESS_FLAG           = ADMIN_BAN;               // Флаг для дос
 
 const MAX_NOMINATE_MAP      = 4;                       // Максимальное количество карт в голосовании
 const VOTE_TIME             = 10;                      // Время голосования (в секундах)
-const TIME_UNTIL_CHANGE	    = 4;                       // Время до смены карты после голосования (через сколько пройдет intermission и последует смена карты)
+const TIME_UNTIL_CHANGE     = 4;                       // Время до смены карты после голосования (через сколько пройдет intermission и последует смена карты)
 
-const TASK_INDEX	    = 512452;
+const TASK_INDEX			= 512452;
 
 enum { 
     STATE_NONE,
     STATE_SELECT,
     STATE_CHANGELEVEL,
-    STATE_START_VOTE,
+    STATE_CREATE_VOTE,
     STATE_VOTING
 };
 
@@ -45,7 +49,7 @@ enum _:DATA {
 enum _:COLOR {R, G, B};
 enum _:POS {Float:X, Float:Y};
 
-new const g_FileName[]            = "admin_maps.ini";                    // Файл, в котором находятся карты для меню
+new const g_FileName[]           = "admin_maps.ini";                    // Файл, в котором находятся карты для меню
 new const g_Colors[COLOR]        = {50, 255, 50};                    // R G B цвет для HUD отсчета
 new const Float:g_HudPos[POS]    = {-1.0, 0.6};                        // X и Y координаты в HUD отсчета
 
@@ -160,10 +164,10 @@ public plugin_natives()
 }
 
 public native_adminvote_is_start()
-    return g_StartVote;
+    return bool:g_StartVote;
 
 public native_adminvote_is_create()
-    return bool:(g_iState == STATE_START_VOTE);
+    return bool:(g_iState == STATE_CREATE_VOTE);
 
 public plugin_end()
 {
@@ -176,7 +180,7 @@ public event_RestartRound()
     switch(g_iState)
     {
         case STATE_CHANGELEVEL: set_intermission_msg();
-        case STATE_START_VOTE:
+        case STATE_CREATE_VOTE:
         {
             g_StartVote = true;
             set_screen_fade(.fade = 1);
@@ -243,7 +247,7 @@ PreOpenMenu(iIndex, iFlags, iMenu)
                 BuildMenu(iIndex, g_MapsMenu[MENU_POS]);
             }
             case STATE_SELECT: client_print_color(iIndex, 0, "[Server] Администратор уже выбирает %s!", iMenu == VOTEMAP ? "карты" : "карту");
-            case STATE_START_VOTE: client_print_color(iIndex, 0, "[Server] Голосование уже создано и будет запущено после окончания текущего раунда!");
+            case STATE_CREATE_VOTE: client_print_color(iIndex, 0, "[Server] Голосование уже создано и будет запущено после окончания текущего раунда!");
             case STATE_VOTING: client_print_color(iIndex, 0, "[Server] В данный момент идет голосование за смену карты!");
             case STATE_CHANGELEVEL: client_print_color(iIndex, 0, "[Server] Следующая карта определена. Смена произойдет после окончания текущего раунда.");
         }
@@ -385,7 +389,7 @@ public MapsMenu_Handler(iIndex, iKey)
                 {
                     if(iKey == 7)
                     {
-                        g_iState = STATE_START_VOTE;
+                        g_iState = STATE_CREATE_VOTE;
 
                         client_print_color(0, 0, "[Server] Администратор ^4%s^1 создал голосование за смену карты, которое начнется в следующем раунде.", szAdminName);                 
                         log_amx("Администратор %s создал голосование за смену карты, которое начнется в следующем раунде.", szAdminName);
