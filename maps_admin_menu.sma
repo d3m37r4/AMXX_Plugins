@@ -7,7 +7,14 @@
 #include <amxmodx>
 
 #if AMXX_VERSION_NUM < 183
-    #include <colorchat> 
+    #include <colorchat>
+
+    const MAX_PLAYERS = 32;
+    const MAX_NAME_LENGTH = 32;
+
+    new MaxClients;
+
+    #define engine_changelevel(%0)      server_cmd("changelevel %s", %0)
 #endif
 
 #define CMD_BLOCK_ON_START_VOTE                        // Блокировать различные меню во время голосования (смена команды, радио команды, покупка оружия и т.д.)
@@ -138,7 +145,7 @@ public plugin_cfg()
 
 public plugin_init()
 {
-    register_plugin("Maps Admin Menu", "1.2", "d3m37r4");
+    register_plugin("Maps Admin Menu", "1.2.1", "d3m37r4");
 
     register_event("HLTV", "event_RestartRound", "a", "1=0", "2=0");
 
@@ -154,6 +161,10 @@ public plugin_init()
 
     register_menucmd(g_MapsMenu[MENU_INDEX], 1023, "MapsMenu_Handler");
     register_menucmd(register_menuid("Vote Map"), (-1^(-1<<(MAX_NOMINATE_MAP+1)))|(1<<9), "VoteMap_Handler");
+
+#if AMXX_VERSION_NUM < 183
+    MaxClients = get_maxplayers();
+#endif    
 }
 
 public plugin_natives()
