@@ -1,9 +1,3 @@
-
-    g_PlayerInfo[pIndex][BAN_TIME] = 0;
-    g_PlayerInfo[pIndex][MUTED] = false;
-
-    VTC_UnmuteClient(pIndex);
-}
 /*
     Credits: F@nt0M (dev-cs.ru/members/16/) for assistance in implementations.
 */
