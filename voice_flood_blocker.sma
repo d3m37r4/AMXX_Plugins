@@ -1,3 +1,9 @@
+
+    g_PlayerInfo[pIndex][BAN_TIME] = 0;
+    g_PlayerInfo[pIndex][MUTED] = false;
+
+    VTC_UnmuteClient(pIndex);
+}
 /*
     Credits: F@nt0M (dev-cs.ru/members/16/) for assistance in implementations.
 */
@@ -34,7 +40,7 @@ new g_PlayerInfo[MAX_PLAYERS + 1][USER_DATA];
 
 public plugin_init()
 {
-    register_plugin("Voice Flood Blocker", "1.0", "d3m37r4");
+    register_plugin("Voice Flood Blocker", "1.0.1", "d3m37r4");
 
 #if defined _reapi_included
     if(!has_vtc())
@@ -115,15 +121,13 @@ public task_CheckMutedPlayers()
 
     for(new i, iSysTime = get_systime(0); i < iPlNum; ++i)
     {
-        new iIndex = aPl[i];
-
-        if(!is_user_connected(iIndex) || !vtc_get_user_block(iIndex))
+        if(!vtc_get_user_block(aPl[i]))
             continue;
 
-        if(g_PlayerInfo[iIndex][BAN_TIME] - iSysTime > 0)
+        if((g_PlayerInfo[aPl[i]][BAN_TIME] - iSysTime) > 0)
             continue;
 
-        vtc_set_user_unmute(iIndex);
+        vtc_set_user_unmute(aPl[i]);
     }
 }
 
