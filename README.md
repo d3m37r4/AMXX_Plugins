@@ -9,3 +9,4 @@
 5) Give Equipment v1.6 - Выдача бронежилета + шлем и defuse kit.
 6) Maps Admin Menu v1.2.1 - Мапменю для администраторов.
 7) Warmup Time v1.0 - Плагин для создания простой разминки.
+8) Voice Flood Blocker v1.0.1 - Блокировка войс флуда.
