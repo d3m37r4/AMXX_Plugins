@@ -32,7 +32,9 @@ public plugin_init() {
 
     DisableHookChain(g_hookShowMenu = RegisterHookChain(RG_ShowVGUIMenu, "show_menu_pre", false));
     DisableHookChain(g_hookPlayerSpawn = RegisterHookChain(RG_CSGameRules_PlayerSpawn, "player_spawn_post", true));
+}
 
+public OnConfigsExecuted() {
     g_iHideHud = get_cvar_num("mapm_hide_hud_on_vote");
     g_iBlockRadioMenu = get_cvar_num("mapm_block_radio_cmd_on_vote");
     g_iBlockMenu = get_cvar_num("mapm_block_menu_on_vote");
