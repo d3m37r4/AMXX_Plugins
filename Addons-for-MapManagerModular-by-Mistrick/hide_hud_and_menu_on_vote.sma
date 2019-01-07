@@ -44,7 +44,7 @@ new g_iIconStatus;
 new g_iMsgId;
 
 public plugin_init() {
-    register_plugin("Hide HUD/Menu on Vote", "1.2.1", "d3m37r4");
+    register_plugin("Hide HUD/Menu on Vote", "1.2.2", "d3m37r4");
 
     g_pCvars[HIDE_HUD] = register_cvar("mapm_hide_hud_on_vote", "1");			        // Скрывать HUD игрока на время голосования.
     g_pCvars[HIDE_ICONSTATUS] = register_cvar("mapm_hide_status_icons_on_vote", "1");   // Скрывать иконки статуса (бомба, дефьюзкит, байзона, зона спасения заложников и т.д.).
@@ -76,15 +76,19 @@ public player_spawn_post(id) {
         set_member(id, m_iHideHUD, get_member(id, m_iHideHUD) | HIDEHUD_FLAGS);
 
         if(g_bMapHasBombZone) {    
-            if(get_member(id, m_bHasC4)) {
-                send_status_icon(id, "c4", STATUSICON_HIDE);             
-            }
-
-            if(get_member(id, m_bHasDefuser)) {
-                send_status_icon(id, "defuser", STATUSICON_HIDE);             
-            }
+            RequestFrame("hide_icons", id);
         }
     }
+}
+
+public hide_icons(id) {
+    if(get_member(id, m_bHasC4)) {
+        send_status_icon(id, "c4", STATUSICON_HIDE);             
+    }
+
+    if(get_member(id, m_bHasDefuser)) {
+        send_status_icon(id, "defuser", STATUSICON_HIDE);             
+    }  
 }
 
 public msg_status_icon(msg_id, msg_dest, id)  {
