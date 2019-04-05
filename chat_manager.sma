@@ -83,7 +83,7 @@ new g_LogMsg;
 #endif
 
 public plugin_init() {
-    register_plugin("Chat Manager", "2.1.2", "d3m37r4");
+    register_plugin("Chat Manager", "2.1.3", "d3m37r4");
 
     register_clcmd("say", "CmdSayHandler");
     register_clcmd("say_team", "CmdSayHandler");
@@ -150,12 +150,7 @@ public CmdSayHandler(id) {
 
     if(gametime < g_PlayerInfo[id][BLOCK_TIME]) {
         new secleft = floatround(g_PlayerInfo[id][BLOCK_TIME] - gametime);
-
-        if(secleft != 0) {
-            client_print(id, print_center, "Чат будет доступен через %d сек.", secleft);
-        } else {
-            client_print(id, print_center, "Чат вновь доступен для вас!");
-        }
+        client_print(id, print_center, secleft != 0 ? ("Чат будет доступен через %s сек.", fmt("%d", secleft)) : "Чат вновь доступен для вас!");
  
         return PLUGIN_HANDLED;
     }
@@ -182,7 +177,7 @@ public CmdSayHandler(id) {
 #if defined BLOCK_IDENTICAL_MSG
     if(equal(message, g_PlayerInfo[id][LAST_MSG])) {
         if(++g_PlayerInfo[id][REPEAT_WARN] >= MAX_IDENTICAL_MSG) {
-            client_print_color(id, 0, "[Server] Сообщение было заблокировано! Вы слишком часто отправляете одинаковые сообщения!");
+            client_print_color(id, 0, "[Server] Сообщение было заблокировано! Вы слишком часто отправляете однотипные сообщения!");
             AddUserWarning(id);
 
             return PLUGIN_HANDLED;
@@ -220,7 +215,7 @@ public CmdSayHandler(id) {
     }
 
     if(g_LogMsg) {
-        new authid[25];
+        new authid[MAX_AUTHID_LENGTH];
         new userid = get_user_userid(id);
         get_user_authid(id, authid, charsmax(authid));
         log_to_file(g_LogFileName, "[#%d|%s|%s] %n%s: %s", userid, authid, team_name, id, say_team ? " (TEAM)" : "", message);
