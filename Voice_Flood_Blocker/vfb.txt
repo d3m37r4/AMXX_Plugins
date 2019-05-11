@@ -1,0 +1,21 @@
+[en]
+VFB_CHECKTIME_CVAR_DESC = After how many seconds of continuous flood, player will be blocked voice chat.
+VFB_BLOCKTIME_CVAR_DESC = For how many seconds will voice chat be blocked.
+VFB_CHECK_BLOCKED_TIME_CVAR_DESC = Interval between checks of blocked players (in seconds).
+VFB_DELAY_SPAM_CVAR_DESC = Minimum delay in seconds between using voice chat (0 - disables the function of blocking the frequent pressing of the voice button).
+VFB_BLOCK_FLOOD = Voice chat was blocked due to flooding for %d seconds.
+VFB_BLOCK_FLOOD_EXP = Lockout time has expired. Voice chat has been unlocked!
+VFB_SPAM_CMD = You use voice chat too often! Wait for %d seconds.
+VFB_EXP_NEED_UPD = Lockout timed out, wait for data to update.
+VFB_WAIT_EXP = Voice chat will be available in %s seconds.
+
+[ru]
+VFB_CHECKTIME_CVAR_DESC = Через сколько секунд непрерывного флуда игроку будет заблокирован голосовой чат.
+VFB_BLOCKTIME_CVAR_DESC = На сколько секунд будет заблокирован голосовой чат.
+VFB_CHECK_BLOCKED_TIME_CVAR_DESC = Интервал между проверками заблокированных игроков (в секундах).
+VFB_DELAY_SPAM_CVAR_DESC = Минимальная задержка в секундах между использованием голосового чата (0 - отключает функцию блокировки частого нажатия кнопки войса).
+VFB_BLOCK_FLOOD = Голосовой чат был заблокирован из-за флуда на %d сек.
+VFB_BLOCK_FLOOD_EXP = Время блокировки истекло. Голосовой чат был разблокирован!
+VFB_SPAM_CMD = Вы слишком часто используете голосовой чат! Подождите %d сек.
+VFB_EXP_NEED_UPD = Время блокировки истекло, дождитесь обновления даных.
+VFB_WAIT_EXP = Голосовой чат будет доступен через %s сек.
