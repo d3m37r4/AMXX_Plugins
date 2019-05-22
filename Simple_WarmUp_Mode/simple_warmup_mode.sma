@@ -1,6 +1,8 @@
 #include <amxmodx>
 #include <reapi>
 
+#define SUPPORT_FOR_UNSCRUPULOUS_SERV_OWNERS 	// Поддержка для недобросовестных серверодержателей (возвращение дефолтных значений кваров регейма, 
+												// хотя, все и так должно возвращаться при загрузке карты, т.к. game.cfg загружается заного).
 #define NOTICE_IN_CENTER_OF_SCREEN				// Уведомление по центру экрана, о том, что включен разминочный режим
 //#define AUTO_CFG								// Автосоздание конфига 
 
@@ -37,7 +39,6 @@ enum VALUE_TYPE {
 };
 
 enum PCVARS {
-    PCVAR_FREEZETIME,
     PCVAR_ROUNDTIME,    
     PCVAR_BUY_TIME,
     PCVAR_ROUND_INFINITE,
@@ -49,7 +50,6 @@ enum PCVARS {
 };
 
 enum RG_CVARS {
-    CVAR_FREEZETIME,
     Float:CVAR_ROUNDTIME,    
     Float:CVAR_BUY_TIME,
     CVAR_ROUND_INFINITE[8],
@@ -82,7 +82,7 @@ new HookChain:g_HookChain[HOOK_CHAINS];
 new bool:g_WarmupStarted;
 
 public plugin_init() {
-    register_plugin("Simple WarmUp Mode", "0.3.2", "d3m37r4");
+    register_plugin("Simple WarmUp Mode", "1.0", "d3m37r4");
 
     RegisterForwards();
     RegisterCvars();
@@ -114,6 +114,15 @@ public HC_RoundEnd_Post(WinStatus:status, ScenarioEventEndRound:event, Float:tmD
         WarmUpStop();
     }
 }
+
+// Thanks fantom for note
+#if defined SUPPORT_FOR_UNSCRUPULOUS_SERV_OWNERS
+public plugin_end() {
+	if(g_WarmupStarted) {
+		SetCvarsValues(.valueType = OLD_VALUE);
+	}
+}
+#endif
 
 #if defined NOTICE_IN_CENTER_OF_SCREEN
 public TaskWarmupMsg() {
@@ -182,7 +191,7 @@ WarmUpStart() {
     #endif
 
         rg_round_end(
-            .tmDelay = 1.5, 
+            .tmDelay = 0.1, 
             .st = WINSTATUS_DRAW, 
             .event = ROUND_GAME_COMMENCE, 
             .message = "Разминочный режим DeathMatch запущен!",
@@ -209,16 +218,17 @@ WarmUpStop() {
         if(g_Cvar[FREE_WEAPON]) {
             SetAllFreeWeapon(.freeWeapon = false);
 
-            for(new id; id <= MaxClients; id++) {
+            for(new id = 1; id <= MaxClients; id++) {
                 if(is_user_connected(id)) {
+                    set_entvar(id, var_flags, get_entvar(id, var_flags) | FL_FROZEN);
                     set_member(id, m_iHideHUD, get_member(id, m_iHideHUD) & ~HIDEHUD_MONEY);
+                    set_member(id, m_flNextAttack, 3.0);
                     SendStatusIcon(id, .icon = g_WarmupModeIcon, .status = STATUSICON_HIDE);
                 }
             }            
         }
 
-        // TODO: заморозить игроков и убрать возможность стрелять до начала основной игры
-        rg_round_end(1.5, WINSTATUS_DRAW, ROUND_END_DRAW, "Разминочный режим DeathMatch отключен!^rПриготовьтесь к бою, игра началась!", _, true);
+        rg_round_end(3.0, WINSTATUS_DRAW, ROUND_END_DRAW, "Разминочный режим DeathMatch отключен!^rПриготовьтесь к бою, игра началась!", _, true);
 
         set_member_game(m_bCompleteReset, true);
         set_member_game(m_bGameStarted, true);
@@ -230,8 +240,6 @@ WarmUpStop() {
     #endif
 
         g_WarmupStarted = false;
-        
-        pause("d"); 
     }
 }
 
@@ -307,7 +315,6 @@ RegisterCvars() {
 }
 
 GetCvarsPointers() {                                          
-    g_Pointer[PCVAR_FREEZETIME] = get_cvar_pointer("mp_freezetime");
     g_Pointer[PCVAR_ROUNDTIME] = get_cvar_pointer("mp_roundtime");
     g_Pointer[PCVAR_BUY_TIME] = get_cvar_pointer("mp_buytime");
     g_Pointer[PCVAR_ROUND_INFINITE] = get_cvar_pointer("mp_round_infinite");
@@ -322,7 +329,6 @@ SetCvarsValues(VALUE_TYPE:valueType) {
     if(valueType == NEW_VALUE) {
         g_GameCvar[NEW_VALUE][CVAR_ROUNDTIME] = float(g_Cvar[WARMUP_TIME]) / 60.0;
         g_GameCvar[NEW_VALUE][CVAR_FORCERESPAWN] = g_Cvar[RESPAWN_TIME];         
-        g_GameCvar[NEW_VALUE][CVAR_FREEZETIME] = 0;
         g_GameCvar[NEW_VALUE][CVAR_BUY_TIME] = -1.0;
         g_GameCvar[NEW_VALUE][CVAR_REFILL_BPAMMO] = 1;
         g_GameCvar[NEW_VALUE][CVAR_RESPAWN_IMMUNITYTIME] = g_Cvar[IMMUNITY_TIME];
@@ -331,8 +337,7 @@ SetCvarsValues(VALUE_TYPE:valueType) {
         copy(g_GameCvar[NEW_VALUE][CVAR_ROUND_INFINITE], charsmax(g_GameCvar[][CVAR_ROUND_INFINITE]), "bcdefg");
 
         g_GameCvar[OLD_VALUE][CVAR_ROUNDTIME] = get_pcvar_float(g_Pointer[PCVAR_ROUNDTIME]); 
-        g_GameCvar[OLD_VALUE][CVAR_FORCERESPAWN] = get_pcvar_float(g_Pointer[PCVAR_FORCERESPAWN]);
-        g_GameCvar[OLD_VALUE][CVAR_FREEZETIME] = get_pcvar_num(g_Pointer[PCVAR_FREEZETIME]);   
+        g_GameCvar[OLD_VALUE][CVAR_FORCERESPAWN] = get_pcvar_float(g_Pointer[PCVAR_FORCERESPAWN]);  
         g_GameCvar[OLD_VALUE][CVAR_BUY_TIME] = get_pcvar_float(g_Pointer[PCVAR_BUY_TIME]);
         g_GameCvar[OLD_VALUE][CVAR_REFILL_BPAMMO] = get_pcvar_num(g_Pointer[PCVAR_REFILL_BPAMMO]);
         g_GameCvar[OLD_VALUE][CVAR_RESPAWN_IMMUNITYTIME] = get_pcvar_num(g_Pointer[PCVAR_RESPAWN_IMMUNITYTIME]);
@@ -343,7 +348,6 @@ SetCvarsValues(VALUE_TYPE:valueType) {
 
     set_pcvar_float(g_Pointer[PCVAR_ROUNDTIME], g_GameCvar[valueType][CVAR_ROUNDTIME]);
     set_pcvar_float(g_Pointer[PCVAR_FORCERESPAWN], g_GameCvar[valueType][CVAR_FORCERESPAWN]); 
-    set_pcvar_num(g_Pointer[PCVAR_FREEZETIME], g_GameCvar[valueType][CVAR_FREEZETIME]);   
     set_pcvar_float(g_Pointer[PCVAR_BUY_TIME], g_GameCvar[valueType][CVAR_BUY_TIME]);
     set_pcvar_num(g_Pointer[PCVAR_REFILL_BPAMMO], g_GameCvar[valueType][CVAR_REFILL_BPAMMO]);
     set_pcvar_num(g_Pointer[PCVAR_RESPAWN_IMMUNITYTIME], g_GameCvar[valueType][CVAR_RESPAWN_IMMUNITYTIME]);
@@ -384,13 +388,12 @@ SendStatusIcon(const index, const icon[], const status = STATUSICON_HIDE, red = 
     }
 }
 
-// thanks wopox1337 for help with this code. 
+// Thanks wopox1337 for help with this code. 
 RemoveHostageEntity() {
     new ent;
     while((ent = rg_find_ent_by_class(ent, "hostage_entity"))) {
         set_entvar(ent, var_health, 0);
-        set_entvar(ent, var_movetype, /*MOVETYPE_NONE*/MOVETYPE_TOSS);
-        //set_entvar(ent, var_flags, ~FL_ONGROUND);
+        set_entvar(ent, var_movetype, MOVETYPE_TOSS);
         set_entvar(ent, var_solid, SOLID_NOT);
         set_entvar(ent, var_deadflag, DEAD_DEAD);
         set_entvar(ent, var_effects, EF_NODRAW);
