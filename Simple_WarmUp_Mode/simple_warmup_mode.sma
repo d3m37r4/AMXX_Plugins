@@ -82,7 +82,8 @@ new HookChain:g_HookChain[HOOK_CHAINS];
 new bool:g_WarmupStarted;
 
 public plugin_init() {
-    register_plugin("Simple WarmUp Mode", "1.0", "d3m37r4");
+    register_plugin("Simple WarmUp Mode", "1.0.1", "d3m37r4");
+    register_dictionary("simple_warmup_mode.txt");
 
     RegisterForwards();
     RegisterCvars();
@@ -126,7 +127,7 @@ public plugin_end() {
 
 #if defined NOTICE_IN_CENTER_OF_SCREEN
 public TaskWarmupMsg() {
-    client_print(0, print_center, "Разминочный режим DeathMatch!");
+    client_print(0, print_center, _replace_string_ex(fmt("%l", "SWM_WARMUP_MODE"), "$r", "^r", true));
 }
 #endif
 
@@ -139,7 +140,7 @@ public HC_BuyWeaponByWeaponID_Post() {
 }
 
 public HC_CBasePlayer_DropPlayerItem_Pre(const id) {
-    client_print(id, print_center, /*"#Weapon_Cannot_Be_Dropped"*/"Данный предмет нельзя выбросить!");
+    client_print(id, print_center, "#Weapon_Cannot_Be_Dropped");
     SetHookChainReturn(ATYPE_INTEGER, 1);
     return HC_SUPERCEDE;
 }
@@ -194,7 +195,7 @@ WarmUpStart() {
             .tmDelay = 0.1, 
             .st = WINSTATUS_DRAW, 
             .event = ROUND_GAME_COMMENCE, 
-            .message = "Разминочный режим DeathMatch запущен!",
+            .message = _replace_string_ex(fmt("%l", "SWM_WARMUP_MODE_ON"), "$r", "^r", true),  
             .sentence = "", 
             .trigger = false
         );
@@ -228,7 +229,13 @@ WarmUpStop() {
             }            
         }
 
-        rg_round_end(3.0, WINSTATUS_DRAW, ROUND_END_DRAW, "Разминочный режим DeathMatch отключен!^rПриготовьтесь к бою, игра началась!", _, true);
+        rg_round_end(
+        	.tmDelay = 3.0, 
+        	.st = WINSTATUS_DRAW, 
+        	.event = ROUND_END_DRAW, 
+            .message = _replace_string_ex(fmt("%l", "SWM_WARMUP_MODE_OFF"), "$r", "^r", true), 
+        	.sentence = "", 
+        	.trigger = true);
 
         set_member_game(m_bCompleteReset, true);
         set_member_game(m_bGameStarted, true);
@@ -258,7 +265,7 @@ RegisterCvars() {
             .name = "amx_warmup_time", 
             .string = "120",
             .flags = FCVAR_SERVER,
-            .description = "Длительность разминки (в секундах)", 
+            .description = fmt("%L", LANG_SERVER, "SWM_WARMUP_TIME_CVAR_DESC"),  
             .has_min = true, 
             .min_val = 0.0
         ),
@@ -269,7 +276,7 @@ RegisterCvars() {
             .name = "amx_warmup_free_weapon", 
             .string = "1",
             .flags = FCVAR_SERVER,
-            .description = "Бесплатное оружие и патроны из стандартного меню закупки", 
+            .description = fmt("%L", LANG_SERVER, "SWM_FREE_WEAPON_CVAR_DESC"), 
             .has_min = true, 
             .min_val = 0.0,
             .has_max = true, 
@@ -282,7 +289,7 @@ RegisterCvars() {
             .name = "amx_warmup_immunity_time", 
             .string = "3",
             .flags = FCVAR_SERVER,
-            .description = "Время защиты игрока после возрождения (указывается в секундах, 0 - отключает защиту)", 
+            .description = fmt("%L", LANG_SERVER, "SWM_IMMUNITY_TIME_CVAR_DESC"), 
             .has_min = true, 
             .min_val = 0.0
         ),
@@ -293,7 +300,7 @@ RegisterCvars() {
             .name = "amx_warmup_respawn_time", 
             .string = "1.5",
             .flags = FCVAR_SERVER,
-            .description = "Время, спустя которое игрок возрождается после смерти (в секундах)", 
+            .description = fmt("%L", LANG_SERVER, "SWM_RESPAWN_TIME_CVAR_DESC"),  
             .has_min = true, 
             .min_val = 0.0
         ),
@@ -304,7 +311,7 @@ RegisterCvars() {
             .name = "amx_warmup_armor_onspawn", 
             .string = "100",
             .flags = FCVAR_SERVER,
-            .description = "Сколько брони выдавать игроку при возрождении (0 - отключить выдачу брони)", 
+            .description = fmt("%L", LANG_SERVER, "SWM_ARMOR_ONSPAWN_CVAR_DESC"), 
             .has_min = true, 
             .min_val = 0.0,
             .has_max = true, 
@@ -398,4 +405,12 @@ RemoveHostageEntity() {
         set_entvar(ent, var_deadflag, DEAD_DEAD);
         set_entvar(ent, var_effects, EF_NODRAW);
     }
+}
+
+// Crutch for line breaks. <3 ML:)
+stock _replace_string_ex(const buff[], const _search[], const _string[], bool:_caseSensitive = true) {
+    new buffer[MAX_FMT_LENGTH];
+    formatex(buffer, charsmax(buffer), buff);
+    replace_string(buffer, charsmax(buffer), _search, _string, _caseSensitive);
+    return buffer;
 }
