@@ -7,6 +7,7 @@ SWM_WARMUP_TIME_CVAR_DESC = Warm up duration (in seconds)
 SWM_IMMUNITY_TIME_CVAR_DESC = Time of protect player after revival (0 - disables protection)
 SWM_RESPAWN_TIME_CVAR_DESC = The time after which player is reborn (in seconds)
 SWM_ARMOR_ONSPAWN_CVAR_DESC = How much armor to give out to player on respawn (0 - disable issuance of armor)
+SWM_OPEN_BUY_ONSPAWN_CVAR_DESC = Automatically open procurement menu when a player respawning
 
 [ru]
 SWM_WARMUP_MODE = Разминочный режим DeathMatch!
@@ -17,3 +18,4 @@ SWM_FREE_WEAPON_CVAR_DESC = Бесплатное оружие и патроны 
 SWM_IMMUNITY_TIME_CVAR_DESC = Время защиты игрока после возрождения (указывается в секундах, 0 - отключает защиту)
 SWM_RESPAWN_TIME_CVAR_DESC = Время, спустя которое игрок возрождается после смерти (в секундах)
 SWM_ARMOR_ONSPAWN_CVAR_DESC = Сколько брони выдавать игроку при возрождении (0 - отключить выдачу брони)
+SWM_OPEN_BUY_ONSPAWN_CVAR_DESC = Автоматически открывать меню закупки при спавне игрока
