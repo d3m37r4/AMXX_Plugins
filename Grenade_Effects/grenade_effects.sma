@@ -9,7 +9,6 @@ enum _:COLORS { RED, GREEN, BLUE };
 
 new g_OptionSwitch[MAX_PLAYERS + 1];
 new g_DynLightColor[COLORS];
-new g_ColorString[12];
 
 new g_DynLighRadius, g_DynLighDecay, g_DynLighDuration;
 new bool:g_RandomColor;
@@ -25,11 +24,15 @@ public plugin_init() {
     RegisterHookChain(RG_CGrenade_ExplodeFlashbang, "CGrenade_ExplodeFlashbang_Post", true);
     RegisterCvars();
 
-    parseColorValue(g_ColorString);
-
 #if defined AUTO_CFG  
     AutoExecConfig(.autoCreate = true, .name = "grenade_effects_cfg");
 #endif
+}
+
+public plugin_cfg() {
+    new color[12];
+    get_cvar_string("amx_ge_dynlight_color", color, charsmax(color));
+    parseColorValue(color);
 }
 
 public client_putinserver(id) {
@@ -61,15 +64,12 @@ public CGrenade_ExplodeFlashbang_Post(const ent) {
 }
  
 RegisterCvars() {
-    new pcvar = create_cvar(
+    hook_cvar_change(create_cvar(
         .name = "amx_ge_dynlight_color", 
         .string = "255 50 0",
         .flags = FCVAR_SERVER,
         .description = fmt("%L", LANG_SERVER, "GE_DYNLIGHT_COLOR_CVAR_DESC")
-    );
-
-    bind_pcvar_string(pcvar, g_ColorString, charsmax(g_ColorString)); 
-    hook_cvar_change(pcvar, "HookChangeColor");
+    ), "HookChangeColor"); 
 
     bind_pcvar_num(create_cvar(
         .name = "amx_ge_dynlight_radius", 
