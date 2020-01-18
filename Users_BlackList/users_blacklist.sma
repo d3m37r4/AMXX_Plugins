@@ -22,7 +22,7 @@ new g_Settings[SETTINGS_LIST];
 new g_CurrentSection;
 
 public plugin_init() {
-    register_plugin("Users BlackList", "1.0.1", "d3m37r4");
+    register_plugin("Users BlackList", "1.0.2", "d3m37r4");
 
     g_BlackList = TrieCreate();
 }
@@ -39,25 +39,28 @@ public plugin_cfg() {
 }
 
 public client_connect(id) {
-    if(is_user_bot(id) || is_user_hltv(id)) {
-        return PLUGIN_HANDLED;
-    }
-
     new user_ip[MAX_IP_LENGTH];
     get_user_ip(id, user_ip, charsmax(user_ip), 1);
-    
-    if(!is_user_authemu(id) && TrieKeyExists(g_BlackList, user_ip)) {
-        _console_print_ex(id, g_Settings[NOTIFICATION_MSG]);
-    #if defined rh_drop_client
-        rh_drop_client(id, g_Settings[KICK_REASON_TXT]);
-    #else
-        server_cmd("kick #%d %s", get_user_userid(id), g_Settings[KICK_REASON_TXT]);
-    #endif
-    } else {
-        log_amx("Player '%n', who is on blacklist, is authorized through GSClient.", id);
-    }
 
-    return PLUGIN_HANDLED;
+    new bool:IsTrieKeyExists = bool:TrieKeyExists(g_BlackList, user_ip);
+    
+    if(!is_user_authemu(id)) {
+        if(IsTrieKeyExists) {
+            if(g_Settings[NOTIFICATION_MSG][0] != EOS) {
+                _console_print_ex(id, g_Settings[NOTIFICATION_MSG]);
+            }
+
+        #if defined rh_drop_client
+            rh_drop_client(id, g_Settings[KICK_REASON_TXT]);
+        #else
+            server_cmd("kick #%d %s", get_user_userid(id), g_Settings[KICK_REASON_TXT]);
+        #endif
+        }
+    } else {
+        if(IsTrieKeyExists) {
+            log_amx("Player '%n', who is on blacklist, is authorized through GSClient.", id);
+        }
+    }
 }
 
 bool:parseConfigINI(const configFile[]) {
@@ -94,6 +97,10 @@ public bool:ReadCFGNewSection(INIParser:handle, const section[], bool:invalid_to
 }
 
 public bool:ReadCFGKeyValue(INIParser:handle, const key[], const value[]) {
+    if(key[0] == EOS) {
+        return false;
+    }
+
     if(g_CurrentSection == SETTINGS) {
         if(equal(key, "kick_reason_txt")) {
             copy(g_Settings[KICK_REASON_TXT], charsmax(g_Settings[KICK_REASON_TXT]), value);
