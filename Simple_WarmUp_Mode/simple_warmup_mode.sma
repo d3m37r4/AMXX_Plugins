@@ -22,7 +22,9 @@ enum CVARS {
     Float:RESPAWN_TIME,
     ARMOR_ONSPAWN,
     OPEN_BUYMENU_ONSPAWN,
-    NOTICE_MSG
+    NOTICE_MSG,
+    SHOW_RESPAWN_BAR,
+    SHOW_ICON_RESPAWN_PROTECT
 };
 
 enum PCVARS {
@@ -34,7 +36,8 @@ enum PCVARS {
     PCVAR_ITEM_STAYTIME,
     PCVAR_REFILL_BPAMMO,
     PCVAR_BUY_ANYWHERE,
-    PCVAR_WPN_ALLOW_MAP_PLACED
+    PCVAR_WPN_ALLOW_MAP_PLACED,
+    PCVAR_GIVE_PLAYER_C4
 };
 
 enum RG_CVARS {
@@ -46,19 +49,18 @@ enum RG_CVARS {
     CVAR_ITEM_STAYTIME,
     CVAR_REFILL_BPAMMO,
     CVAR_BUY_ANYWHERE,
-    CVAR_WPN_ALLOW_MAP_PLACED
+    CVAR_WPN_ALLOW_MAP_PLACED,
+    CVAR_PCVAR_GIVE_PLAYER_C4,
+    CVAR_GIVE_PLAYER_C4
 };
 
 enum any:HOOK_CHAINS {
     HookChain:ROUND_END_POST,      
     HookChain:ON_SPAWN_EQUIP_POST,
-    HookChain:DROP_PLAYER_ITEM_PRE,
-    HookChain:GIVEC4_PRE,
-    HookChain:BUY_WEAPON_PRE,
-    HookChain:BUY_WEAPON_POST,
     HookChain:SET_SPAWN_PROTECT_POST,
     HookChain:REMOVE_SPAWN_PROTECT_POST,
-    HookChain:CLEAN_UP_MAP_POST
+    HookChain:CLEAN_UP_MAP_POST,
+    HookChain:PLAYER_KILLED_POST
 };
 
 const TASK_INDEX = 200;
@@ -82,7 +84,7 @@ new bool:g_WarmupStarted;
 #define getLangKey(%0) fmt("%l", %0)
 
 public plugin_init() {
-    register_plugin("Simple WarmUp Mode", "2.1.0", "d3m37r4");
+    register_plugin("Simple WarmUp Mode", "2.2.1", "d3m37r4");
     register_dictionary("simple_warmup_mode.txt");
 
     RegisterForwards();
@@ -123,25 +125,6 @@ public RoundEnd_Post(WinStatus:status, ScenarioEventEndRound:event, Float:tmDela
     }
 }
 
-public BuyWeaponByWeaponID_Pre() {
-    DisableHookChain(g_HookChain[DROP_PLAYER_ITEM_PRE]);
-}
-
-public BuyWeaponByWeaponID_Post() {
-    EnableHookChain(g_HookChain[DROP_PLAYER_ITEM_PRE]);
-}
-
-public CBasePlayer_DropPlayerItem_Pre(const id) {
-    client_printex(id, print_center, "#Weapon_Cannot_Be_Dropped");
-    SetHookChainReturn(ATYPE_INTEGER, 1);
-
-    return HC_SUPERCEDE;
-}
-
-public CSGameRules_GiveC4_Pre() {
-    return HC_SUPERCEDE;
-}
-
 public CSGameRules_CleanUpMap_Post() {
     RemoveHostageEntities();
 
@@ -154,11 +137,20 @@ public CSGameRules_CleanUpMap_Post() {
 }
 
 public CBasePlayer_SetSpawnProtection_Post(const id) {
-    send_status_icon(id, "suithelmet_full", STATUSICON_FLASH);
+    if(g_Cvar[SHOW_ICON_RESPAWN_PROTECT]) {
+        send_status_icon(id, "suithelmet_full", STATUSICON_FLASH);
+    }
 }
 
 public CBasePlayer_RemoveSpawnProtection_Post(const id) {
     send_status_icon(id, "suithelmet_full", STATUSICON_HIDE);
+}
+
+public CBasePlayer_Killed_Post(const victim, const killer, const gibs) {
+    // https://github.com/wopox1337/CSDM-ReAPI/blob/6cef091f44ba9377897207b3855e0dff3c3e711f/amxmodx/scripting/csdm_core.sma#L271
+    if(g_Cvar[SHOW_RESPAWN_BAR] && g_Cvar[RESPAWN_TIME] >= 1.5 && !(Menu_ChooseTeam <= get_member(victim, m_iMenu) <= Menu_ChooseAppearance)) {
+        rg_send_bartime(victim, floatround(g_Cvar[RESPAWN_TIME]), false);
+    }
 }
 
 public CBasePlayer_OnSpawnEquip_Post(const id, bool:addDefault, bool:equipGame) {
@@ -353,6 +345,30 @@ RegisterCvars() {
             .max_val = 2.0
         ), g_Cvar[NOTICE_MSG]
     );    
+    bind_pcvar_num(
+        create_cvar(
+            .name = "amx_warmup_show_respawn_bar", 
+            .string = "0",
+            .flags = FCVAR_SERVER,
+            .description = getCvarDesc("SWM_SHOW_RESPAWN_BAR_CVAR_DESC"), 
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_Cvar[SHOW_RESPAWN_BAR]
+    );
+    bind_pcvar_num(
+        create_cvar(
+            .name = "amx_warmup_show_icon_respawn_protect", 
+            .string = "1",
+            .flags = FCVAR_SERVER,
+            .description = getCvarDesc("SWM_SHOW_ICON_RESPAWN_PROTECT_CVAR_DESC"), 
+            .has_min = true,
+            .min_val = 0.0,
+            .has_max = true, 
+            .max_val = 1.0
+        ), g_Cvar[SHOW_ICON_RESPAWN_PROTECT]
+    );
 }
 
 GetCvarsPointers() {                                          
@@ -365,6 +381,7 @@ GetCvarsPointers() {
     g_Pointer[PCVAR_REFILL_BPAMMO] = get_cvar_pointer("mp_refill_bpammo_weapons");
     g_Pointer[PCVAR_BUY_ANYWHERE] = get_cvar_pointer("mp_buy_anywhere");
     g_Pointer[PCVAR_WPN_ALLOW_MAP_PLACED] = get_cvar_pointer("mp_weapons_allow_map_placed");
+    g_Pointer[PCVAR_GIVE_PLAYER_C4] = get_cvar_pointer("mp_give_player_c4");
 }
 
 SetCvarsValues(VALUE_TYPE:valueType) {
@@ -377,6 +394,7 @@ SetCvarsValues(VALUE_TYPE:valueType) {
         g_GameCvar[NEW_VALUE][CVAR_REFILL_BPAMMO] = 3;
         g_GameCvar[NEW_VALUE][CVAR_BUY_ANYWHERE] = 1;
         g_GameCvar[NEW_VALUE][CVAR_WPN_ALLOW_MAP_PLACED] = 0;
+        g_GameCvar[NEW_VALUE][CVAR_GIVE_PLAYER_C4] = 0;
         copy(g_GameCvar[NEW_VALUE][CVAR_ROUND_INFINITE], charsmax(g_GameCvar[][CVAR_ROUND_INFINITE]), "bcdefg");
 
         g_GameCvar[OLD_VALUE][CVAR_ROUNDTIME] = get_pcvar_float(g_Pointer[PCVAR_ROUNDTIME]); 
@@ -387,6 +405,7 @@ SetCvarsValues(VALUE_TYPE:valueType) {
         g_GameCvar[OLD_VALUE][CVAR_REFILL_BPAMMO] = get_pcvar_num(g_Pointer[PCVAR_REFILL_BPAMMO]);
         g_GameCvar[OLD_VALUE][CVAR_BUY_ANYWHERE] = get_pcvar_num(g_Pointer[PCVAR_BUY_ANYWHERE]);
         g_GameCvar[OLD_VALUE][CVAR_WPN_ALLOW_MAP_PLACED] = get_pcvar_num(g_Pointer[PCVAR_WPN_ALLOW_MAP_PLACED]);
+        g_GameCvar[OLD_VALUE][CVAR_GIVE_PLAYER_C4] = get_pcvar_num(g_Pointer[PCVAR_GIVE_PLAYER_C4]);
         get_pcvar_string(g_Pointer[PCVAR_ROUND_INFINITE], g_GameCvar[OLD_VALUE][CVAR_ROUND_INFINITE], charsmax(g_GameCvar[][CVAR_ROUND_INFINITE]));                 
     }
 
@@ -398,19 +417,17 @@ SetCvarsValues(VALUE_TYPE:valueType) {
     set_pcvar_num(g_Pointer[PCVAR_ITEM_STAYTIME], g_GameCvar[valueType][CVAR_ITEM_STAYTIME]);
     set_pcvar_num(g_Pointer[PCVAR_BUY_ANYWHERE], g_GameCvar[valueType][CVAR_BUY_ANYWHERE]);
     set_pcvar_num(g_Pointer[PCVAR_WPN_ALLOW_MAP_PLACED], g_GameCvar[valueType][CVAR_WPN_ALLOW_MAP_PLACED]);
+    set_pcvar_num(g_Pointer[PCVAR_GIVE_PLAYER_C4], g_GameCvar[valueType][CVAR_GIVE_PLAYER_C4]);
     set_pcvar_string(g_Pointer[PCVAR_ROUND_INFINITE], g_GameCvar[valueType][CVAR_ROUND_INFINITE]);
 }
 
 RegisterForwards() {
     DisableHookChain(g_HookChain[ROUND_END_POST] = RegisterHookChain(RG_RoundEnd, "RoundEnd_Post", true));
-    DisableHookChain(g_HookChain[DROP_PLAYER_ITEM_PRE] = RegisterHookChain(RG_CBasePlayer_DropPlayerItem, "CBasePlayer_DropPlayerItem_Pre", false));
-    DisableHookChain(g_HookChain[BUY_WEAPON_PRE] = RegisterHookChain(RG_BuyWeaponByWeaponID, "BuyWeaponByWeaponID_Pre", false));
-    DisableHookChain(g_HookChain[BUY_WEAPON_POST] = RegisterHookChain(RG_BuyWeaponByWeaponID, "BuyWeaponByWeaponID_Post", true));
     DisableHookChain(g_HookChain[SET_SPAWN_PROTECT_POST] = RegisterHookChain(RG_CBasePlayer_SetSpawnProtection, "CBasePlayer_SetSpawnProtection_Post", true));
     DisableHookChain(g_HookChain[REMOVE_SPAWN_PROTECT_POST] = RegisterHookChain(RG_CBasePlayer_RemoveSpawnProtection, "CBasePlayer_RemoveSpawnProtection_Post", true));
     DisableHookChain(g_HookChain[ON_SPAWN_EQUIP_POST] = RegisterHookChain(RG_CBasePlayer_OnSpawnEquip, "CBasePlayer_OnSpawnEquip_Post", true));
-    DisableHookChain(g_HookChain[GIVEC4_PRE] = RegisterHookChain(RG_CSGameRules_GiveC4, "CSGameRules_GiveC4_Pre", false));
     DisableHookChain(g_HookChain[CLEAN_UP_MAP_POST] = RegisterHookChain(RG_CSGameRules_CleanUpMap, "CSGameRules_CleanUpMap_Post", true));
+    DisableHookChain(g_HookChain[PLAYER_KILLED_POST] = RegisterHookChain(RG_CBasePlayer_Killed, "CBasePlayer_Killed_Post", true));
 }
 
 ToggleForwards(const bool:enable) {

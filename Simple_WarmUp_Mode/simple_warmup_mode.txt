@@ -9,6 +9,8 @@ SWM_RESPAWN_TIME_CVAR_DESC = The time after which player is reborn (in seconds)
 SWM_ARMOR_ONSPAWN_CVAR_DESC = How much armor to give out to player on respawn (0 - disable issuance of armor)
 SWM_OPEN_BUY_ONSPAWN_CVAR_DESC = Automatically open procurement menu when a player respawning
 SWM_NOTICE_MSG_CVAR_DESC = Warmup mode DeathMatch notification
+SWM_SHOW_RESPAWN_BAR_CVAR_DESC = Show status bar of respawn (displayed if amx_warmup_respawn_time> = 1.5 sec.)
+SWM_SHOW_ICON_RESPAWN_PROTECT_CVAR_DESC = Show icon of protect player from damage on respawn 
 
 [ru]
 SWM_WARMUP_MODE = Разминочный режим DeathMatch!
@@ -21,3 +23,19 @@ SWM_RESPAWN_TIME_CVAR_DESC = Время, спустя которое игрок 
 SWM_ARMOR_ONSPAWN_CVAR_DESC = Сколько брони выдавать игроку при возрождении (0 - отключить выдачу брони)
 SWM_OPEN_BUY_ONSPAWN_CVAR_DESC = Автоматически открывать меню закупки при спавне игрока
 SWM_NOTICE_MSG_CVAR_DESC = Уведомление о работе разминочного режима (0 - отключено, 1 - обычное текстовое сообщение, 2 - HUD собщение)
+SWM_SHOW_RESPAWN_BAR_CVAR_DESC = Отображать статусбар времени возрождения (отображается, если amx_warmup_respawn_time >= 1.5 сек.)
+SWM_SHOW_ICON_RESPAWN_PROTECT_CVAR_DESC = Отображать иконку действия защиты игрока от урона при спавне
+
+[de]
+SWM_WARMUP_MODE = Warmup mode DeathMatch!
+SWM_WARMUP_MODE_ON = Warmup mode DeathMatch hat begonnen!
+SWM_WARMUP_MODE_OFF = Warmup mode DeathMatch ist beendet!$nMach Dich für den Kampf fertig!
+SWM_FREE_WEAPON_CVAR_DESC = Kostenlose Waffen und Munition aus dem normalen Beschaffungsmenü
+SWM_WARMUP_TIME_CVAR_DESC = Dauer des Warmups (in Sekunden)
+SWM_IMMUNITY_TIME_CVAR_DESC = Zeit des Schutzes für Spieler nach Wiederbeleben (0 - Schutz aus)
+SWM_RESPAWN_TIME_CVAR_DESC = Zeit, nach der der Spieler wiederbelebt wird (in Sekunden)
+SWM_ARMOR_ONSPAWN_CVAR_DESC = Menge der Rüstung, die nach dem Wiederbeleben ausgegeben wird (0 - Rüstungsausgabe aus)
+SWM_OPEN_BUY_ONSPAWN_CVAR_DESC = Das Beschaffungsmenü wird automatisch geöffnet, wenn der Spieler erneut auftaucht
+SWM_NOTICE_MSG_CVAR_DESC = Benachrichtung über Warmup mode DeathMatch
+SWM_SHOW_RESPAWN_BAR_CVAR_DESC = Statusleiste des Respawns anzeigen (Wird angezeigt, wenn amx_warmup_respawn_time> = 1,5 Sek.)
+SWM_SHOW_ICON_RESPAWN_PROTECT_CVAR_DESC = Symbol für die Aktion des Schutz des Spielers vor Schaden anzeigen
