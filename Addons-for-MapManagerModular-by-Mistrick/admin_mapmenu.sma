@@ -3,11 +3,11 @@
 #include <map_manager_scheduler>
 
 new const ADMIN_MAPLIST[]   = "admin_maps.ini";       // Список карт для формирования меню (в строку указывается только название карты без учета онлайна)
-const ACCESS_FLAG           = ADMIN_MAP;              // Флаг для доступа к меню
+const FLAG_ACCESS_CHANGEMAP = ADMIN_MAP;              // Флаг для доступа к командам смены карты
+const FLAG_ACCESS_VOTEMAP   = ADMIN_VOTE;             // Флаг для доступа к командам создания голосования за смену карты
 
 const VOTE_BY_ADMIN_MENU    = 4;
 const MAX_ITEMS_MENU        = 6;
-const MAX_VOTELIST_SIZE     = 9;
 
 enum {
     MenuKeyConfirm = 6, 
@@ -45,15 +45,13 @@ new g_NextMap[MAPNAME_LENGTH];
 new g_Prefix[48];
 
 public plugin_init() {
-    register_plugin("Admin Mapmenu", "0.3", "d3m37r4");
+    register_plugin("Admin Mapmenu", "0.4", "d3m37r4");
 
-    register_clcmd("amx_changemap_menu", "CmdChangeMapMenu", ACCESS_FLAG);
-    register_clcmd("amx_votemap_menu", "CmdVoteMapMenu", ACCESS_FLAG);
+    RegisterCmd();
+    RegisterBlockCmd();
 
     register_menucmd(g_MenuInfo[MenuId] = register_menuid("MapMenu"), 1023, "HandleMapMenu");
     disable_event(g_EventNewRound = register_event("HLTV", "EventNewRound", "a", "1=0", "2=0"));
-
-    RegisterBlockCmd();
 }
 
 public plugin_cfg() {
@@ -66,7 +64,7 @@ public plugin_cfg() {
     if(!mapm_load_maplist_to_array(g_MapList, filename)) {
         ArrayDestroy(g_MapList);
         ArrayDestroy(g_VoteList);
-        set_fail_state("nothing loaded from ^"%s^"", filename);
+        set_fail_state("nothing loaded from '%s'", filename);
     }
 
     if(g_MapList) {
@@ -77,7 +75,7 @@ public plugin_cfg() {
     mapm_get_prefix(g_Prefix, charsmax(g_Prefix));
 }
 
-public CmdSay(id) {
+public CmdSay(const id) {
     if(!is_vote_started() && !is_vote_finished() && !is_vote_will_in_next_round()) {
         return PLUGIN_CONTINUE;
     }
@@ -107,7 +105,7 @@ public CmdSay(id) {
     return PLUGIN_CONTINUE;
 }
 
-public CmdBlock(id) {
+public CmdBlock(const id) {
     if(is_vote_started() || is_vote_finished() || is_vote_will_in_next_round()) {
         return PLUGIN_HANDLED;
     }
@@ -115,8 +113,88 @@ public CmdBlock(id) {
     return PLUGIN_CONTINUE;
 }
 
+public CmdChangeMap(const id, const flags) {
+    if(!CmdEnabled(id, flags, true)) {
+        return PLUGIN_HANDLED; 
+    }
+
+    if(read_argc() != 2) {
+        console_print(id, "* Неверный синтаксис команды!");
+        console_print(id, "* Пример использования: amx_changemap <map>");
+        return PLUGIN_HANDLED;
+    }
+
+    new map[MAPNAME_LENGTH];
+    read_argv(1, map, charsmax(map));
+
+    if(equali(map, MapName)) {
+        console_print(id, "* Нельзя сменить на текущую карту!");
+        return PLUGIN_HANDLED;
+    }
+
+    if(!MapInArray(map, g_MainMapList) && !MapInArray(map, g_MapList)) {
+        console_print(id, "* Карта '%s' отсутствует в маплисте!", map);
+        return PLUGIN_HANDLED;
+    }
+
+    ChangeMap(id, map);
+    return PLUGIN_HANDLED;  
+}
+
+public CmdVoteMap(const id, const flags) {
+    if(!CmdEnabled(id, flags, true)) {
+        return PLUGIN_HANDLED; 
+    }
+
+    new argc = read_argc();
+    new max_items = mapm_get_votelist_size();
+
+    if(argc < 2 || max_items + 1 < argc) {
+        console_print(id, "* Неверный синтаксис команды!");
+        console_print(id, "* Максимальное число карт в голосовании: %d", max_items);
+        console_print(id, "* Пример использования: amx_votemap <map1> <map2> ...");
+        return PLUGIN_HANDLED;
+    }
+
+    g_VoteItems = 0;
+    max_items = (argc - 1);
+
+    for(new i, map[MAPNAME_LENGTH]; i < max_items; i++) {
+        read_argv(i + 1, map, charsmax(map));
+        if(map[0] == EOS) {
+            continue;
+        }
+
+        if(equali(map, MapName)) {
+            //console_print(id, "* Нельзя сменить на текущую карту!");
+            continue;
+        }
+
+        if(!MapInArray(map, g_MainMapList) && !MapInArray(map, g_MapList)) {
+            //console_print(id, "* Карта '%s' отсутствует в маплисте!", map);
+            continue;
+        }
+        
+        if(MapInArray(map, g_VoteList)) {
+            //console_print(id, "* Карта '%s' повторяется в списке голосования!", map);
+            continue;   
+        }
+
+        ArrayPushString(g_VoteList, map);
+        g_VoteItems++;
+    }
+
+    if(g_VoteItems) {
+        StartVote(id);
+    } else {
+        console_print(id, "* Голосование не было запущено!");
+    }
+
+    return PLUGIN_HANDLED;  
+}
+
 public CmdChangeMapMenu(const id, const flags) {
-    if(!MenuEnabled(id, flags)) {
+    if(!CmdEnabled(id, flags)) {
         return PLUGIN_HANDLED; 
     }
 
@@ -125,7 +203,7 @@ public CmdChangeMapMenu(const id, const flags) {
 }
 
 public CmdVoteMapMenu(const id, const flags) {
-    if(!MenuEnabled(id, flags)) {
+    if(!CmdEnabled(id, flags)) {
         return PLUGIN_HANDLED; 
     }
 
@@ -182,7 +260,7 @@ ShowMapMenu(const id, const page = 0) {
         ArrayGetString(g_MapList, i, map_name, charsmax(map_name));
 
         keys |= (1 << item);
-        len += formatex(menu[len], charsmax(menu) - len, ArrayFindString(g_VoteList, map_name) != INVALID_MAP_INDEX ?
+        len += formatex(menu[len], charsmax(menu) - len, MapInArray(map_name, g_VoteList) ?
         "\d%d. %s \y[\r*\y]^n" : "\r%d. \w%s^n", ++item, map_name);
     }
 
@@ -222,18 +300,10 @@ public HandleMapMenu(const id, const key) {
     switch(key) {
         case MenuKeyConfirm: {
             if(g_MenuInfo[MenuType] == VoteMapMenu) {
-                client_print_color(0, print_team_default, "%s ^4%n ^1создал голосование за смену карты.", g_Prefix, id);
-                map_scheduler_start_vote(VOTE_BY_ADMIN_MENU);               
+                StartVote(id);             
             } else {
                 ArrayGetString(g_VoteList, 0, g_NextMap, charsmax(g_NextMap));
-                set_cvar_string("amx_nextmap", g_NextMap);
-                client_print_color(0, print_team_default, "%s ^4%n ^1сменил текущую карту на ^4%s^1.", g_Prefix, id, g_NextMap);
-                if(g_LastRound) {
-                    enable_event(g_EventNewRound);
-                    client_print_color(0, print_team_default, "%s ^1Смена карты произойдет в начале следующего раунда.", g_Prefix);
-                } else {
-                    intermission();
-                }
+                ChangeMap(id, g_NextMap);
             }
         }
         case MenuKeyBack: {
@@ -287,35 +357,76 @@ public mapm_prepare_votelist(type) {
     mapm_set_votelist_max_items(g_VoteItems);
 }
 
-bool:MenuEnabled(const id, const flags) {
-    if(~get_user_flags(id) & flags) {
-        console_print(id, "* Недостаточно прав для использования команды!");
+bool:CmdEnabled(const index, const flags, bool:console = false) {
+    if(~get_user_flags(index) & flags) {
+        console_print(index, "* Недостаточно прав для использования команды!");
         return false;
     }
 
+    static message[190];
     if(is_vote_started()) {
-        client_print_color(id, print_team_default, "%s ^1Команда недоступна! Голосование уже запущено!", g_Prefix);
+        formatex(message, charsmax(message), "^1Команда недоступна! Голосование уже запущено!");
+        console ? __ConsolePrintEx(index, "* %s", message) : client_print_color(index, print_team_default, "%s %s", g_Prefix, message);
         return false;
     }
 
     if(is_vote_will_in_next_round()) {
-        client_print_color(id, print_team_default, "%s ^1Команда недоступна! В следующем раунде начнется голосование за смену карты!", g_Prefix);
+        formatex(message, charsmax(message), "^1Команда недоступна! В следующем раунде начнется голосование за смену карты!");
+        console ? __ConsolePrintEx(index, "* %s", message) : client_print_color(index, print_team_default, "%s %s", g_Prefix, message);
         return false;
     }
 
     if(is_last_round()) {
         get_cvar_string("amx_nextmap", g_NextMap, charsmax(g_NextMap));
-        client_print_color(id, print_team_default, "%s ^1Команда недоступна! Cледующая карта уже определена: ^4%s^1.", g_Prefix, g_NextMap);
+        formatex(message, charsmax(message), "^1Команда недоступна! Cледующая карта уже определена: ^4%s^1.", g_NextMap);
+        console ? __ConsolePrintEx(index, "* %s", message) : client_print_color(index, print_team_default, "%s %s", g_Prefix, message);
         return false;        
     }
 
-    if(g_State == StateSelect && g_MenuInfo[MenuUserId] != id) {
-        client_print_color(id, print_team_default, "%s ^1Команда недоступна! ^4%n^1 уже выбирает %s!", 
-        g_Prefix, g_MenuInfo[MenuUserId], g_MenuInfo[MenuType] == VoteMapMenu ? "карты" : "карту");
+    if(g_State == StateSelect && g_MenuInfo[MenuUserId] != index) {
+        new name[MAX_NAME_LENGTH];
+        get_user_name(g_MenuInfo[MenuUserId], name, charsmax(name));
+
+        formatex(message, charsmax(message), "^1Команда недоступна! ^4%s^1 уже выбирает %s!", 
+        g_MenuInfo[MenuUserId] ? name : "Server", g_MenuInfo[MenuType] == VoteMapMenu ? "карты" : "карту");
+
+        console ? __ConsolePrintEx(index, "* %s", message) : client_print_color(index, print_team_default, "%s %s", g_Prefix, message);
         return false;
     }
 
     return true;
+}
+
+ChangeMap(const index, map[]) {
+    new name[MAX_NAME_LENGTH];
+    get_user_name(index, name, charsmax(name));
+
+    copy(g_NextMap, charsmax(g_NextMap), map);
+    set_cvar_string("amx_nextmap", g_NextMap);
+
+    client_print_color(0, print_team_default, "%s ^4%s ^1сменил текущую карту на ^4%s^1.", g_Prefix, index ? name : "Server", g_NextMap);
+    if(g_LastRound) {
+        enable_event(g_EventNewRound);
+        client_print_color(0, print_team_default, "%s ^1Смена карты произойдет в начале следующего раунда.", g_Prefix);
+    } else {
+        intermission();
+    }
+}
+
+StartVote(const index) {
+    new name[MAX_NAME_LENGTH];
+    get_user_name(index, name, charsmax(name));
+
+    client_print_color(0, print_team_default, "%s ^4%s ^1создал голосование за смену карты.", g_Prefix, index ? name : "Server");
+    map_scheduler_start_vote(VOTE_BY_ADMIN_MENU); 
+}
+
+RegisterCmd() {
+    register_concmd("amx_changemap", "CmdChangeMap", FLAG_ACCESS_CHANGEMAP);
+    register_clcmd("amx_changemap_menu", "CmdChangeMapMenu", FLAG_ACCESS_CHANGEMAP);
+
+    register_concmd("amx_votemap", "CmdVoteMap", FLAG_ACCESS_VOTEMAP);
+    register_clcmd("amx_votemap_menu", "CmdVoteMapMenu", FLAG_ACCESS_VOTEMAP);
 }
 
 RegisterBlockCmd() {
@@ -361,4 +472,20 @@ __FindSimilarMapByString(string[MAPNAME_LENGTH], Array:maplist) {
     }
 
     return INVALID_MAP_INDEX;
+}
+
+bool:MapInArray(map[], Array:arr) {
+    return bool:(ArrayFindString(arr, map) != INVALID_MAP_INDEX);
+}
+
+stock __ConsolePrintEx(const index, const message[], any:...) {
+    static _string[126];
+    vformat(_string, charsmax(_string), message, 3);
+
+    static const color_tags[][] = { "^1", "^3", "^4" };
+    for(new i; i < sizeof color_tags; i++) {
+        replace_string(_string, charsmax(_string), color_tags[i], "", false);
+    }
+
+    console_print(index, _string);
 }
