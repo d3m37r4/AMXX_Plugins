@@ -44,14 +44,22 @@ new g_LastRound;
 new g_NextMap[MAPNAME_LENGTH];
 new g_Prefix[48];
 
+#if AMXX_VERSION_NUM < 200
+    new MapName[MAPNAME_LENGTH];
+#endif
+
 public plugin_init() {
-    register_plugin("Admin Mapmenu", "0.4", "d3m37r4");
+    register_plugin("Admin Mapmenu", "0.4.1", "d3m37r4");
 
     RegisterCmd();
     RegisterBlockCmd();
 
     register_menucmd(g_MenuInfo[MenuId] = register_menuid("MapMenu"), 1023, "HandleMapMenu");
     disable_event(g_EventNewRound = register_event("HLTV", "EventNewRound", "a", "1=0", "2=0"));
+
+#if AMXX_VERSION_NUM < 200
+    get_mapname(MapName, charsmax(MapName));
+#endif    
 }
 
 public plugin_cfg() {

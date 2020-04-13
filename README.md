@@ -17,4 +17,4 @@
 12) Grenade Effects v1.4 - Форк плагина FlashBang DynLight.
 13) Weapons Discount v1.1 - Выдача скидок по флагу на оружие из меню закупки.
 14) Users BlackList v1.0.1 - Черный список игроков, которым вход на сервер доступен только с GSClient.
-15) Admin Mapmenu v0.4 - Плагин-аддон для мап менеджера от Mistrick - замена оригинального mapsmenu.amxx от AMXX Dev Team.
+15) Admin Mapmenu v0.4.1 - Плагин-аддон для мап менеджера от Mistrick - замена оригинального mapsmenu.amxx от AMXX Dev Team.
