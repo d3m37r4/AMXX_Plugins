@@ -1,0 +1,48 @@
+[en]
+VOTEMAP_MENU_TITLE = \y[\rVoteMap Menu\y] \wMap list
+CHANGEMAP_MENU_TITLE = \y[\rChangeMap Menu\y] \wMap list 
+SELECTED_MAPS = \wSelected maps:
+MENUKEY_CREATE_VOTE = Create vote
+MENUKEY_CONFIRM_SELECTION =Confirm selection
+
+INVALID_CMD_SYNTAX = * Invalid command syntax!
+MAX_ITEMS_IN_VOTE = * Maximum number of maps in vote
+USAGE_EXAMPLE = * Usage example
+ERR_THIS_CURR_MAP = * Cannot be changed to current map
+ERR_NO_IN_MAPLIST = * Map '%s' missing in maplist
+ERR_VOTE_FAILED = * Vote failed!
+ERR_ACCESS_DENIED = * Not enough rights to use command!
+DELAY_CMD = Command will be available through %d:%02d.
+VOTE_STARTED = Command unavailable! Vote is already running!
+VOTE_IN_NEXT_ROUND = Command unavailable! Next round will begin vote for a change of map!
+MAP_DEFINED = Command unavailable! Following map is already defined: %s.
+MENU_STATE_SELECT = Command unavailable! %s already choosing %l!
+MAPS = maps
+MAP = map
+STATE_CHANGELEVEL = %s changed current map to %s.
+STATE_CREATE_VOTE = %s created a vote for change of map.
+
+[ru]
+VOTEMAP_MENU_TITLE = \y[\rVoteMap Menu\y] \wСписок карт
+CHANGEMAP_MENU_TITLE = \y[\rChangeMap Menu\y] \wСписок карт
+SELECTED_MAPS = \wВыбрано карт:
+MENUKEY_CREATE_VOTE = Создать голосование
+MENUKEY_CONFIRM_SELECTION = Подтвердить выбор
+
+INVALID_CMD_SYNTAX = * Неверный синтаксис команды!
+MAX_ITEMS_IN_VOTE = * Максимальное число карт в голосовании
+USAGE_EXAMPLE = * Пример использования
+ERR_THIS_CURR_MAP = * Нельзя сменить на текущую карту
+ERR_NO_IN_MAPLIST = * Карта '%s' отсутствует в маплисте
+ERR_MAP_DUPLICATED = * Карта '%s' повторяется в списке голосования
+ERR_VOTE_FAILED = * Голосование не было запущено!
+ERR_ACCESS_DENIED = * Недостаточно прав для использования команды!
+DELAY_CMD = Команда будет доступна через %d:%02d.
+VOTE_STARTED = Команда недоступна! Голосование уже запущено!
+VOTE_IN_NEXT_ROUND = Команда недоступна! В следующем раунде начнется голосование за смену карты!
+MAP_DEFINED = Команда недоступна! Cледующая карта уже определена: %s.
+MENU_STATE_SELECT = Команда недоступна! %s уже выбирает %l!
+MAPS = карты
+MAP = карту
+STATE_CHANGELEVEL = %s сменил текущую карту на %s.
+STATE_CREATE_VOTE = %s создал голосование за смену карты.
