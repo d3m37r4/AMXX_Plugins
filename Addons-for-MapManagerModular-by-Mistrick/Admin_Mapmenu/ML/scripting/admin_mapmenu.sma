@@ -56,7 +56,7 @@ new g_MapStartTime;
 #endif
 
 public plugin_init() {
-    register_plugin("Admin Mapmenu", "0.5.2", "d3m37r4");
+    register_plugin("Admin Mapmenu", "0.5.3", "d3m37r4");
 
     RegisterCmd();
     RegisterBlockCmd();
@@ -242,14 +242,6 @@ public CmdVoteMapMenu(const id, const flags) {
 }
 
 OpenMapMenu(const id, const menuid) {
-    if(g_State == StateNone) {
-        g_MenuInfo[MenuPos] = 0;
-        g_MenuInfo[MenuType] = menuid;
-        g_MenuInfo[MenuUserId] = id;
-        g_State = StateSelect;
-        ShowMapMenu(id);
-    }
-
     if(g_State == StateSelect) {
         new bool:menu_open, menu_index, dummy;
         for(new player = 1; player <= MaxClients; player++) {
@@ -269,6 +261,14 @@ OpenMapMenu(const id, const menuid) {
         if(!menu_open) {
             ClearData();
         }
+    }
+
+    if(g_State == StateNone) {
+        g_MenuInfo[MenuPos] = 0;
+        g_MenuInfo[MenuType] = menuid;
+        g_MenuInfo[MenuUserId] = id;
+        g_State = StateSelect;
+        ShowMapMenu(id);
     }
 }
 
