@@ -18,3 +18,4 @@
 13) Weapons Discount v1.1 - Выдача скидок по флагу на оружие из меню закупки.
 14) Users BlackList v1.0.1 - Черный список игроков, которым вход на сервер доступен только с GSClient.
 15) Admin Mapmenu v0.5.3 - Плагин-аддон для мап менеджера от Mistrick - замена оригинального mapsmenu.amxx от AMXX Dev Team.
+16) Block Radio Commands v1.0 - Плагин блокирует меню радио команд.
