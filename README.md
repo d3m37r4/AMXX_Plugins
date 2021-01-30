@@ -14,8 +14,9 @@
 10) Hide HUD/Menu on Vote v1.2 - Плагин на время голосования блокирует меню закупки, меню смены команды, меню радиокоманд, убирает игровой интерфейс, блокирует иконки зоны закупки, бомбы и дефьюзкита.
 11) Chat Manager v2.1.2 - Менеджер чата (солянка из плагинов от Mistrick и Neygomon) :D.
 12) Simple WarmUp Mode v2.2.1 - Разминочный режим CSDM.
-12) Grenade Effects v1.4 - Форк плагина FlashBang DynLight.
-13) Weapons Discount v1.1 - Выдача скидок по флагу на оружие из меню закупки.
-14) Users BlackList v1.0.1 - Черный список игроков, которым вход на сервер доступен только с GSClient.
-15) Admin Mapmenu v0.5.3 - Плагин-аддон для мап менеджера от Mistrick - замена оригинального mapsmenu.amxx от AMXX Dev Team.
-16) Block Radio Commands v1.0 - Плагин блокирует меню радио команд.
+13) Grenade Effects v1.4 - Форк плагина FlashBang DynLight.
+14) Weapons Discount v1.1 - Выдача скидок по флагу на оружие из меню закупки.
+15) Users BlackList v1.0.1 - Черный список игроков, которым вход на сервер доступен только с GSClient.
+16) Admin Mapmenu v0.5.3 - Плагин-аддон для мап менеджера от Mistrick - замена оригинального mapsmenu.amxx от AMXX Dev Team.
+17) Block Radio Commands v1.0 - Плагин блокирует меню радио команд.
+18) [CSBans] DB Connector v0.0.8 - Плагин для коннекта к бд CSBans, с возможностью передачи указателя установленного соединения в другие плагины.

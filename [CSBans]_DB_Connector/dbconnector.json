@@ -1,0 +1,9 @@
+{
+    "drivername": "mysql",
+    "hostname": "127.0.0.1",
+    "user": "root",
+    "password": "pass",
+    "database": "dbname",
+    "retries_delay": 15.0,
+    "retries": 3
+}
