@@ -3,7 +3,7 @@
 #include <sqlx>
 
 public stock const PluginName[] = "[CSBans] DB Connector";
-public stock const PluginVersion[] = "0.0.8";
+public stock const PluginVersion[] = "0.0.9";
 public stock const PluginAuthor[] = "d3m37r4";
 public stock const PluginURL[] = "sib-game.ru";
 
@@ -46,13 +46,11 @@ readConfig() {
 
 	if(!file_exists(FilePath)) {
 		set_fail_state("Configuration file '%s' not found.", FilePath);
-		return;
 	}
 
 	new JSON:Config = json_parse(FilePath, true);
 	if(Config == Invalid_JSON)    {
 		set_fail_state("Configuration file '%s' read error.", FilePath);
-		return;
 	}
 
 	new Temp[64];
